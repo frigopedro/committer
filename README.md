@@ -1,6 +1,9 @@
-# committer
+# AI Git Committer
 
-Generate conventional commit messages using Claude, ChatGPT, or a local Llama model.
+I was tired of typing out commit messages, so I wrote this tool.
+I know bunch of other tools exist, but I had hard times with them.
+
+Its a personal tool, dont expect to be good because its not :/
 
 ## Install
 
@@ -23,7 +26,7 @@ committer
 The tool reads your git diff, proposes a conventional commit message, then
 asks you to (y) commit, (n) abort, or (r) regenerate.
 
-Commit messages include a required body and footer (git trailer format).
+Commit messages include a required body with a broader summary of the changes.
 
 On first run, committer creates a `.committer` config file in your home
 directory and walks the user through provider and model selection.
@@ -75,12 +78,10 @@ Commit messages are generated in the format:
 <type>[optional scope]: <description>
 
 <body>
-
-<footer>
 ```
 
-The body and footer are always present; the footer uses git trailer format
-like `Refs: N/A` or `BREAKING CHANGE: ...`.
+The body is always present and provides a multi-sentence summary of most
+changed files.
 
 ## Claude setup
 

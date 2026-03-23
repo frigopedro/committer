@@ -5,8 +5,6 @@ const SUBJECT_REGEX = new RegExp(
   `^(${COMMIT_TYPES.join("|")})(\\([^)]+\\))?(!)?:\\s.+$`
 );
 
-const FOOTER_REGEX = /^(BREAKING CHANGE|[A-Za-z0-9-]+)(: | #).+$/;
-
 export function hasEmoji(text) {
   return EMOJI_REGEX.test(text);
 }
@@ -35,31 +33,7 @@ export function validateCommitMessage(message) {
     return { valid: false, reason: "Body must start after a blank line." };
   }
 
-  let footerStart = lines.length;
-  for (let index = lines.length - 1; index >= 0; index -= 1) {
-    const line = lines[index].trim();
-    if (!line) {
-      footerStart = index + 1;
-      break;
-    }
-
-    if (!FOOTER_REGEX.test(line)) {
-      return {
-        valid: false,
-        reason: "Footer must use trailer format like 'Refs: N/A'.",
-      };
-    }
-  }
-
-  if (footerStart >= lines.length) {
-    return { valid: false, reason: "Footer is required." };
-  }
-
-  if (footerStart <= 2) {
-    return { valid: false, reason: "Body is required." };
-  }
-
-  const bodyLines = lines.slice(2, footerStart - 1);
+  const bodyLines = lines.slice(2);
   const bodyHasContent = bodyLines.some((line) => line.trim().length > 0);
   if (!bodyHasContent) {
     return { valid: false, reason: "Body is required." };

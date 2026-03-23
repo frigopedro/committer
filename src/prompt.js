@@ -3,18 +3,20 @@ import { COMMIT_TYPES } from "./constants.js";
 export function buildPrompt(diff, { truncated }) {
   const types = COMMIT_TYPES.join(", ");
   return [
-    "You generate conventional commit messages.",
-    "Return JSON only, no extra text.",
+    "Write a professional git commit message based on the diff below.",
+    "Return JSON ONLY, no extra text.",
     "JSON schema:",
-    '{"subject":"...","body":"...","footer":"..."}',
-    "Subject format: <type>(optional-scope)!: <description> (use ! only for breaking changes)",
-    "Body and footer are REQUIRED.",
+    '{"subject":"...","body":"..."}',
+    "Do not preface the commit with anything.",
+    "Use the conventional commits specification:",
+    "Subject format: <type>(optional-scope)!: <description> (use ! only for breaking changes).",
+    "Body is REQUIRED.",
     `Allowed types: ${types}.`,
     "Use imperative mood, lower-case description, no trailing period.",
     "Keep the subject under 72 characters.",
     "Do not use emojis.",
-    "Footer must use git trailer format, e.g. 'Refs: N/A' or 'BREAKING CHANGE: ...'.",
-    "If no references are available, use 'Refs: N/A'.",
+    "Body should be a concise, multi-sentence summary covering most changed files.",
+    "Do not include a footer.",
     truncated ? "The diff was truncated." : "",
     "",
     "Diff:",
@@ -40,10 +42,8 @@ export function parseCommitMessage(raw) {
     const parsed = JSON.parse(cleaned);
     const subject = parsed?.subject?.trim();
     const body = parsed?.body?.trim();
-    const footer = parsed?.footer?.trim();
-
-    if (!subject || !body || !footer) return "";
-    return `${subject}\n\n${body}\n\n${footer}`.trim();
+    if (!subject || !body) return "";
+    return `${subject}\n\n${body}`.trim();
   } catch {
     const start = cleaned.indexOf("{");
     const end = cleaned.lastIndexOf("}");
@@ -52,10 +52,8 @@ export function parseCommitMessage(raw) {
         const parsed = JSON.parse(cleaned.slice(start, end + 1));
         const subject = parsed?.subject?.trim();
         const body = parsed?.body?.trim();
-        const footer = parsed?.footer?.trim();
-
-        if (!subject || !body || !footer) return "";
-        return `${subject}\n\n${body}\n\n${footer}`.trim();
+        if (!subject || !body) return "";
+        return `${subject}\n\n${body}`.trim();
       } catch {
         return "";
       }
