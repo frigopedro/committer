@@ -1,6 +1,6 @@
 # committer
 
-Generate conventional commit messages using Claude or a local Llama model.
+I was tired of writing commit messages by hand, so I did this.
 
 ## Install
 

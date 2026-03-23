@@ -310,7 +310,7 @@ async function selectOllamaModel({ host, rl }) {
     models.findIndex((model) => model === DEFAULT_OLLAMA_MODEL)
   );
 
-  output.write("\nAvailable Ollama models:\n");
+  output.write("\n📦 Available Ollama models:\n");
   models.forEach((model, index) => {
     const marker = index === defaultIndex ? " (default)" : "";
     output.write(`${index + 1}) ${model}${marker}\n`);
@@ -338,7 +338,7 @@ async function selectOllamaModel({ host, rl }) {
 }
 
 async function runOnboarding({ rl, configPath }) {
-  output.write("\nWelcome to committer! Let's create a .committer config.\n");
+  output.write("\n👋 Welcome to committer! Let's create a .committer config.\n");
 
   const provider = await promptSelect({
     rl,
@@ -389,7 +389,7 @@ async function runOnboarding({ rl, configPath }) {
   };
 
   await writeConfig(configPath, config);
-  output.write(`Saved config to ${configPath}.\n`);
+  output.write(`✅ Saved config to ${configPath}.\n`);
   return config;
 }
 
@@ -416,7 +416,7 @@ async function main() {
     storedConfig?.provider ||
     "claude";
   if (provider !== "claude" && provider !== "ollama") {
-    output.write("Provider must be claude or ollama.\n");
+    output.write("❌ Provider must be claude or ollama.\n");
     process.exit(1);
   }
   const modelOverride =
@@ -445,7 +445,7 @@ async function main() {
   const diff = getDiff(diffMode);
 
   if (!diff.trim()) {
-    output.write("No changes detected in git diff.\n");
+    output.write("🟡 No changes detected in git diff.\n");
     rl.close();
     process.exit(0);
   }
@@ -460,13 +460,14 @@ async function main() {
       try {
         model = await selectOllamaModel({ host, rl });
       } catch (error) {
-        output.write(`Ollama model selection failed: ${error.message}\n`);
-        output.write(`Falling back to ${DEFAULT_OLLAMA_MODEL}.\n`);
+        output.write(`⚠️ Ollama model selection failed: ${error.message}\n`);
+        output.write(`↩️ Falling back to ${DEFAULT_OLLAMA_MODEL}.\n`);
         model = DEFAULT_OLLAMA_MODEL;
       }
     }
 
     while (true) {
+      output.write("⏳ Loading... generating commit message.\n");
       message = await generateCommitMessage({
         provider,
         model,
@@ -475,13 +476,13 @@ async function main() {
       });
 
       if (!message) {
-        output.write("AI did not return a commit message.\n");
+        output.write("⚠️ AI did not return a commit message.\n");
       } else {
-        output.write(`\nSuggested commit message:\n${message}\n\n`);
+        output.write(`\n✨ Suggested commit message:\n${message}\n\n`);
       }
 
       if (!message) {
-        output.write("Regenerating commit message...\n");
+        output.write("🔁 Regenerating commit message...\n");
         continue;
       }
 
@@ -491,6 +492,7 @@ async function main() {
       const choice = answer.trim().toLowerCase();
 
       if (choice === "y") {
+        output.write("✅ Committing...\n");
         const result = spawnSync("git", ["commit", "-m", message], {
           stdio: "inherit",
         });
@@ -498,19 +500,19 @@ async function main() {
       }
 
       if (choice === "n") {
-        output.write("Commit aborted.\n");
+        output.write("🛑 Commit aborted.\n");
         process.exit(EXIT_USER_ABORT);
       }
 
       if (choice === "r") {
-        output.write("Regenerating commit message...\n");
+        output.write("🔁 Regenerating commit message...\n");
         continue;
       }
 
       output.write("Please enter y, n, or r.\n");
     }
   } catch (error) {
-    output.write(`Error: ${error.message}\n`);
+    output.write(`❌ Error: ${error.message}\n`);
     process.exit(1);
   } finally {
     rl.close();
