@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "provider": "ollama",
+  "model": "mistral:latest",
+  "diffMode": "auto",
+  "maxDiffChars": 100000
+}
