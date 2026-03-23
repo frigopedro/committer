@@ -4,7 +4,7 @@
   "description": "Generate conventional commit messages using AI",
   "type": "module",
   "bin": {
-    "committer": "bin/ai-commit.js"
+    "committer": "index.js"
   },
   "engines": {
     "node": ">=18"

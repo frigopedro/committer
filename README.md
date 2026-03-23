@@ -1,6 +1,6 @@
 # committer
 
-I was tired of writing commit messages by hand, so I did this.
+Generate conventional commit messages using Claude, ChatGPT, or a local Llama model.
 
 ## Install
 
@@ -23,14 +23,15 @@ committer
 The tool reads your git diff, proposes a conventional commit message, then
 asks you to (y) commit, (n) abort, or (r) regenerate.
 
-On first run, committer creates a `.committer` config file in the repo and
-walks the user through provider and model selection.
+On first run, committer creates a `.committer` config file in your home
+directory and walks the user through provider and model selection.
 Use `committer --init` to re-run onboarding and rewrite the config.
 
 ### Options
 
 ```bash
 committer --provider ollama --model llama3.1
+committer --provider openai --model gpt-4o-mini
 committer --staged
 committer --all
 committer --init
@@ -41,15 +42,16 @@ CLI will list your local Ollama models and prompt you to pick one.
 
 ### Environment variables
 
-- `AI_COMMIT_PROVIDER`: `claude` or `ollama`
+- `AI_COMMIT_PROVIDER`: `claude`, `ollama`, or `openai`
 - `AI_COMMIT_MODEL`: override model name
 - `AI_COMMIT_MAX_DIFF_CHARS`: trim diff length
 - `ANTHROPIC_API_KEY` or `CLAUDE_API_KEY`: Claude API key
+- `OPENAI_API_KEY`: OpenAI API key
 - `AI_COMMIT_OLLAMA_HOST`: Ollama host (default `http://localhost:11434`)
 
 ### .committer config
 
-The `.committer` file is a JSON config stored at the root of your git repo.
+The `.committer` file is a JSON config stored at `~/.committer`.
 
 Example:
 
@@ -69,6 +71,14 @@ Set your Claude API key before running:
 
 ```bash
 export ANTHROPIC_API_KEY=your_key_here
+```
+
+## ChatGPT setup
+
+Set your OpenAI API key before running:
+
+```bash
+export OPENAI_API_KEY=your_key_here
 ```
 
 ## Local Llama setup
