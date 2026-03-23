@@ -13,7 +13,8 @@ export async function callOpenAI({ system, user, model }) {
     body: JSON.stringify({
       model,
       temperature: 0.2,
-      max_tokens: 64,
+      max_tokens: 128,
+      response_format: { type: "json_object" },
       messages: [
         { role: "system", content: system },
         { role: "user", content: user },

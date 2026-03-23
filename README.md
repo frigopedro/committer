@@ -23,6 +23,8 @@ committer
 The tool reads your git diff, proposes a conventional commit message, then
 asks you to (y) commit, (n) abort, or (r) regenerate.
 
+Commit messages include a required body and footer (git trailer format).
+
 On first run, committer creates a `.committer` config file in your home
 directory and walks the user through provider and model selection.
 Use `committer --init` to re-run onboarding and rewrite the config.
@@ -64,6 +66,21 @@ Example:
   "maxDiffChars": 12000
 }
 ```
+
+### Commit format
+
+Commit messages are generated in the format:
+
+```
+<type>[optional scope]: <description>
+
+<body>
+
+<footer>
+```
+
+The body and footer are always present; the footer uses git trailer format
+like `Refs: N/A` or `BREAKING CHANGE: ...`.
 
 ## Claude setup
 

@@ -6,10 +6,11 @@ export async function callOllama({ system, user, model, host }) {
     },
     body: JSON.stringify({
       model,
+      format: "json",
       stream: false,
       options: {
         temperature: 0.2,
-        num_predict: 64,
+        num_predict: 128,
       },
       messages: [
         { role: "system", content: system },

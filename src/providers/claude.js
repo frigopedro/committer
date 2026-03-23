@@ -16,7 +16,7 @@ export async function callClaude({ system, user, model }) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 64,
+      max_tokens: 128,
       temperature: 0.2,
       system,
       messages: [{ role: "user", content: user }],

@@ -1,4 +1,4 @@
-import { buildPrompt, cleanCommitMessage } from "./prompt.js";
+import { buildPrompt, parseCommitMessage } from "./prompt.js";
 import { callClaude } from "./providers/claude.js";
 import { callOllama } from "./providers/ollama.js";
 import { callOpenAI } from "./providers/openai.js";
@@ -23,5 +23,5 @@ export async function generateCommitMessage({
     raw = await callClaude({ system, user, model });
   }
 
-  return cleanCommitMessage(raw);
+  return parseCommitMessage(raw);
 }

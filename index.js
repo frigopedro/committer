@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 
@@ -20,6 +19,8 @@ import { generateCommitMessage } from "./src/ai.js";
 import { runOnboarding } from "./src/onboarding.js";
 import { selectOllamaModel } from "./src/ollama.js";
 import { writeLine } from "./src/ui.js";
+import { commitWithMessage } from "./src/commit.js";
+import { hasEmoji, validateCommitMessage } from "./src/validate.js";
 
 const PROVIDERS = ["claude", "ollama", "openai"];
 
@@ -178,15 +179,22 @@ async function main() {
       });
 
       if (!message) {
-        writeLine("⚠️ AI did not return a commit message.");
-      } else {
-        writeLine(`\n✨ Suggested commit message:\n${message}\n`);
-      }
-
-      if (!message) {
-        writeLine("🔁 Regenerating commit message...");
+        writeLine("⚠️ AI response was invalid. Regenerating...");
         continue;
       }
+
+      if (hasEmoji(message)) {
+        writeLine("⚠️ Commit message contains emoji. Regenerating...");
+        continue;
+      }
+
+      const validation = validateCommitMessage(message);
+      if (!validation.valid) {
+        writeLine(`⚠️ ${validation.reason} Regenerating...`);
+        continue;
+      }
+
+      writeLine(`\n✨ Suggested commit message:\n${message}\n`);
 
       const answer = await rl.question(
         "Use (y) to commit, (n) to abort, (r) to regenerate: "
@@ -195,10 +203,8 @@ async function main() {
 
       if (choice === "y") {
         writeLine("✅ Committing...");
-        const result = spawnSync("git", ["commit", "-m", message], {
-          stdio: "inherit",
-        });
-        process.exit(result.status ?? 1);
+        const status = await commitWithMessage(message);
+        process.exit(status);
       }
 
       if (choice === "n") {
