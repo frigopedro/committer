@@ -13,15 +13,81 @@ import {
     EXIT_USER_ABORT,
 } from "./src/constants.js";
 import { getConfigPath, readConfig } from "./src/config.js";
-import { ensureGitRepo, getDiff } from "./src/git.js";
-import { truncateDiff } from "./src/diff.js";
 import { generateCommitMessage } from "./src/ai.js";
 import { runOnboarding } from "./src/onboarding.js";
-import { selectOllamaModel } from "./src/ollama.js";
-import { write, writeLine } from "./src/ui.js";
-import { commitWithMessage } from "./src/commit.js";
+import { colorize, colors, write, writeLine } from "./src/ui.js";
+import { getProviderClass } from "./src/providers/registry.js";
+import { GitClient } from "./src/git-client.js";
 
 const PROVIDERS = ["claude", "ollama", "openai"];
+const SEPARATOR = "-".repeat(64);
+const SPINNER_FRAMES = ["|", "/", "-", "\\"];
+
+function startSpinner(text) {
+    let frame = 0;
+    const label = colorize(text, colors.dim);
+    const icon = colorize(SPINNER_FRAMES[frame], colors.dim);
+    output.write(`${label} ${icon}`);
+    const timer = setInterval(() => {
+        frame = (frame + 1) % SPINNER_FRAMES.length;
+        const icon = colorize(SPINNER_FRAMES[frame], colors.dim);
+        output.write(`\r${label} ${icon}`);
+    }, 120);
+
+    return () => {
+        clearInterval(timer);
+        output.write(`\r${" ".repeat(text.length + 2)}\r`);
+    };
+}
+
+async function promptRuntimeModel({ provider, defaultModel, rl, host }) {
+    const Provider = getProviderClass(provider);
+    if (!Provider || typeof Provider.listModels !== "function") {
+        return defaultModel;
+    }
+
+    let models = [];
+    try {
+        models = await Provider.listModels({ host });
+    } catch (error) {
+        writeLine(`⚠️ ${provider} model selection failed: ${error.message}`);
+        writeLine(`↩️ Falling back to ${defaultModel}.`);
+        return defaultModel;
+    }
+
+    if (!models.length) {
+        return defaultModel;
+    }
+
+    const defaultIndex = Math.max(
+        0,
+        models.findIndex((model) => model === defaultModel)
+    );
+
+    writeLine(`\n🧠 Available ${provider} models:`);
+    models.forEach((model, index) => {
+        const marker = index === defaultIndex ? " (default)" : "";
+        writeLine(`${index + 1}) ${model}${marker}`);
+    });
+
+    const answer = await rl.question(`Select model [${defaultIndex + 1}]: `);
+    const trimmed = answer.trim();
+    if (!trimmed) {
+        return models[defaultIndex];
+    }
+
+    const asNumber = Number.parseInt(trimmed, 10);
+    if (!Number.isNaN(asNumber) && asNumber >= 1 && asNumber <= models.length) {
+        return models[asNumber - 1];
+    }
+
+    if (models.includes(trimmed)) {
+        return trimmed;
+    }
+
+    writeLine("Invalid selection. Using default model.");
+    return models[defaultIndex];
+}
 
 function normalizeProvider(provider) {
     if (provider === "chatgpt") return "openai";
@@ -41,6 +107,7 @@ function printHelp() {
         "  --staged              Use staged diff only",
         "  --all                 Combine staged + unstaged diff",
         "  --max-diff-chars       Trim diff to this many chars (default: 12000)",
+        "  --prompt-append        Extra instructions appended to the prompt",
         "  --init                Run onboarding and write ~/.committer",
         "  --help                Show this help",
         "",
@@ -70,7 +137,9 @@ function resolveModel({ provider, modelFromArgs, storedConfig }) {
 }
 
 async function main() {
+    const git = new GitClient();
     const args = parseArgs(process.argv.slice(2));
+    const shouldAddAll = process.argv.slice(2).includes(".");
     if (args.has("help")) {
         printHelp();
         process.exit(0);
@@ -78,7 +147,7 @@ async function main() {
 
     let hasRepo = true;
     try {
-        ensureGitRepo();
+        git.ensureRepo();
     } catch (error) {
         hasRepo = false;
         if (!args.has("init")) {
@@ -128,26 +197,28 @@ async function main() {
     if (provider === "ollama" && !modelFromArgs) {
         const configMatches = storedConfig?.provider === "ollama" && storedConfig?.model;
         if (!configMatches) {
-            try {
-                model = await selectOllamaModel({ host: ollamaHost, rl });
-            } catch (error) {
-                writeLine(`⚠️ Ollama model selection failed: ${error.message}`);
-                writeLine(`↩️ Falling back to ${DEFAULT_OLLAMA_MODEL}.`);
-                model = DEFAULT_OLLAMA_MODEL;
-            }
+            model = await promptRuntimeModel({
+                provider,
+                defaultModel: DEFAULT_OLLAMA_MODEL,
+                rl,
+                host: ollamaHost,
+            });
         }
     }
 
     let maxDiffChars = Number.parseInt(
         args.get("max-diff-chars") ||
-        process.env.AI_COMMIT_MAX_DIFF_CHARS ||
-        storedConfig?.maxDiffChars ||
-        DEFAULT_MAX_DIFF_CHARS,
+            process.env.AI_COMMIT_MAX_DIFF_CHARS ||
+            storedConfig?.maxDiffChars ||
+            DEFAULT_MAX_DIFF_CHARS,
         10
     );
     if (Number.isNaN(maxDiffChars) || maxDiffChars <= 0) {
         maxDiffChars = DEFAULT_MAX_DIFF_CHARS;
     }
+
+    const promptAppend =
+        args.get("prompt-append") || args.get("append") || storedConfig?.promptAppend || "";
 
     const diffModeFromArgs = args.get("staged")
         ? "staged"
@@ -156,42 +227,72 @@ async function main() {
             : null;
     const diffMode = diffModeFromArgs || storedConfig?.diffMode || "auto";
 
-    const diff = getDiff(diffMode);
+    if (shouldAddAll) {
+        writeLine(colorize("📦 Staging all changes (git add .)...", colors.dim));
+        git.runGit("add .");
+    }
+
+    const diff = git.getDiff(diffMode);
     if (!diff.trim()) {
         writeLine("🟡 No changes detected in git diff.");
         rl.close();
         process.exit(0);
     }
 
-    const { diff: trimmedDiff, truncated } = truncateDiff(diff, maxDiffChars);
+    const { diff: trimmedDiff, truncated } = git.truncateDiff(diff, maxDiffChars);
     let message = "";
 
     try {
         while (true) {
-            writeLine("⏳ Loading commit message...");
-            writeLine("\n✨ Suggested commit message:");
+            const stop = startSpinner("Loading commit message");
+            let spinnerStopped = false;
+            let headerPrinted = false;
             let streamed = false;
+
+            const stopSpinner = () => {
+                if (spinnerStopped) return;
+                spinnerStopped = true;
+                stop();
+            };
+
+            const startOutput = () => {
+                if (headerPrinted) return;
+                stopSpinner();
+                writeLine("");
+                writeLine(colorize("✨ Suggested commit message:", colors.bold));
+                writeLine(colorize(SEPARATOR, colors.dim));
+                headerPrinted = true;
+            };
+
             message = await generateCommitMessage({
                 provider,
                 model,
                 diff: trimmedDiff,
                 truncated,
                 host: ollamaHost,
+                promptAppend,
                 stream: true,
                 onToken: (chunk) => {
                     streamed = true;
+                    startOutput();
                     write(chunk);
                 },
             });
+
+            stopSpinner();
+            if (!headerPrinted) {
+                startOutput();
+            }
 
             if (!streamed && message) {
                 writeLine(message);
             }
 
             writeLine("");
+            writeLine(colorize(SEPARATOR, colors.dim));
 
             if (!message) {
-                writeLine("⚠️ AI response was empty. Regenerating...");
+                writeLine(colorize("⚠️ AI response was empty. Regenerating...", colors.yellow));
                 continue;
             }
 
@@ -201,13 +302,13 @@ async function main() {
             const choice = answer.trim().toLowerCase();
 
             if (choice === "y") {
-                writeLine("✅ Committing...");
-                const status = await commitWithMessage(message);
+                writeLine(colorize("✅ Committing...", colors.green));
+                const status = await git.commitWithMessage(message);
                 process.exit(status);
             }
 
             if (choice === "n") {
-                writeLine("🛑 Commit aborted.");
+                writeLine(colorize("🛑 Commit aborted.", colors.red));
                 process.exit(EXIT_USER_ABORT);
             }
 

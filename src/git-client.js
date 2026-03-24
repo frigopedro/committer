@@ -1,0 +1,64 @@
+import { execSync, spawnSync } from "node:child_process";
+import { promises as fs } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { randomUUID } from "node:crypto";
+
+export class GitClient {
+  runGit(args) {
+    return execSync(`git ${args}`, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trimEnd();
+  }
+
+  ensureRepo() {
+    try {
+      this.runGit("rev-parse --show-toplevel");
+    } catch (error) {
+      throw new Error("Not inside a git repository.");
+    }
+  }
+
+  getRepoRoot() {
+    return this.runGit("rev-parse --show-toplevel");
+  }
+
+  getDiff(mode) {
+    const staged = this.runGit("diff --staged");
+    const unstaged = this.runGit("diff");
+
+    if (mode === "staged") return staged;
+    if (mode === "all") {
+      if (staged && unstaged) return `${staged}\n\n${unstaged}`;
+      return staged || unstaged;
+    }
+
+    return staged || unstaged;
+  }
+
+  truncateDiff(diff, maxChars) {
+    if (diff.length <= maxChars) return { diff, truncated: false };
+    const keep = Math.floor(maxChars / 2);
+    const start = diff.slice(0, keep);
+    const end = diff.slice(diff.length - keep);
+    return {
+      diff: `${start}\n\n...diff truncated...\n\n${end}`,
+      truncated: true,
+    };
+  }
+
+  async commitWithMessage(message) {
+    const filePath = join(tmpdir(), `committer-${randomUUID()}.txt`);
+    await fs.writeFile(filePath, `${message}\n`, "utf8");
+
+    try {
+      const result = spawnSync("git", ["commit", "-F", filePath], {
+        stdio: "inherit",
+      });
+      return result.status ?? 1;
+    } finally {
+      await fs.rm(filePath, { force: true });
+    }
+  }
+}

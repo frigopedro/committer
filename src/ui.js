@@ -1,5 +1,27 @@
 import { stdout as output } from "node:process";
 
+const RESET = "\u001b[0m";
+const BOLD = "\u001b[1m";
+const DIM = "\u001b[2m";
+const YELLOW = "\u001b[33m";
+const GREEN = "\u001b[32m";
+const RED = "\u001b[31m";
+const CYAN = "\u001b[36m";
+
+export const colors = {
+  reset: RESET,
+  bold: BOLD,
+  dim: DIM,
+  yellow: YELLOW,
+  green: GREEN,
+  red: RED,
+  cyan: CYAN,
+};
+
+export function colorize(text, color) {
+  return `${color}${text}${RESET}`;
+}
+
 export function writeLine(text) {
   output.write(`${text}\n`);
 }

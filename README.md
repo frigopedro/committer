@@ -22,6 +22,12 @@ npm link
 committer
 ```
 
+Stage everything and commit in one go:
+
+```bash
+committer .
+```
+
 You will get a suggested commit message and can:
 
 - `y` to commit
@@ -42,6 +48,7 @@ committer --init
 ```bash
 committer --provider ollama --model llama3.1
 committer --provider openai --model gpt-4o-mini
+committer --prompt-append "Prefer mentioning tests if they changed."
 committer --staged
 committer --all
 ```
@@ -87,6 +94,7 @@ committer --provider ollama
 ## Config file 🧰
 
 `~/.committer` is a JSON config shared across all repos.
+You can override `promptAppend` per run with `--prompt-append`.
 
 ```json
 {
@@ -94,7 +102,8 @@ committer --provider ollama
   "provider": "ollama",
   "model": "llama3.1",
   "diffMode": "auto",
-  "maxDiffChars": 12000
+  "maxDiffChars": 12000,
+  "promptAppend": ""
 }
 ```
 

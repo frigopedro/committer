@@ -1,7 +1,5 @@
-import { buildPrompt, buildSystemPrompt } from "./prompt.js";
-import { callClaude } from "./providers/claude.js";
-import { callOllama, streamOllama } from "./providers/ollama.js";
-import { callOpenAI, streamOpenAI } from "./providers/openai.js";
+import { cleanCommitMessage } from "./text.js";
+import { createProvider } from "./providers/registry.js";
 
 export async function generateCommitMessage({
     provider,
@@ -9,37 +7,24 @@ export async function generateCommitMessage({
     diff,
     truncated,
     host,
+    promptAppend,
     stream = false,
     onToken,
 }) {
-    const system = buildSystemPrompt(provider);
-    const user = buildPrompt(provider, diff, { truncated });
+    const providerClient = createProvider(provider, { model, host });
+    const system = providerClient.buildSystemPrompt();
+    const user = providerClient.buildPrompt(diff, {
+        truncated,
+        appendText: promptAppend,
+    });
 
     let raw = "";
 
-    if (stream && typeof onToken === "function") {
-        if (provider === "ollama") {
-            raw = await streamOllama({ system, user, model, host, onToken });
-            return raw;
-        }
-
-        if (provider === "openai") {
-            raw = await streamOpenAI({ system, user, model, onToken });
-            return raw;
-        }
-
-        if (provider === "claude") {
-            // Claude streaming is not enabled; fall back to non-stream.
-        }
+    if (stream && typeof onToken === "function" && providerClient.supportsStreaming) {
+        raw = await providerClient.stream({ system, user, onToken });
+        return cleanCommitMessage(raw);
     }
 
-    if (provider === "ollama") {
-        raw = await callOllama({ system, user, model, host });
-    } else if (provider === "openai") {
-        raw = await callOpenAI({ system, user, model });
-    } else {
-        raw = await callClaude({ system, user, model });
-    }
-
-    return raw;
+    raw = await providerClient.generate({ system, user });
+    return cleanCommitMessage(raw);
 }
