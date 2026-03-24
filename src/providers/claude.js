@@ -15,7 +15,7 @@ export async function callClaude({ system, user, model }) {
             "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-            model,
+            model: "claude-sonnet-4-6",
             max_tokens: 256,
             temperature: 0.2,
             system,
@@ -31,4 +31,34 @@ export async function callClaude({ system, user, model }) {
     const data = await response.json();
     const content = data?.content?.[0]?.text ?? "";
     return content;
+}
+
+export async function fetchClaudeModels() {
+    const apiKey =
+        process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || "";
+    if (!apiKey) {
+        throw new Error(
+            "Missing ANTHROPIC_API_KEY or CLAUDE_API_KEY for Claude provider."
+        );
+    }
+
+    const response = await fetch("https://api.anthropic.com/v1/models", {
+        method: "GET",
+        headers: {
+            "content-type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+        },
+    });
+
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Claude API error: ${response.status} ${text}`);
+    }
+
+    const data = await response.json();
+    const models = (data?.data || [])
+        .map((model) => model?.id)
+        .filter(Boolean);
+    return Array.from(new Set(models)).sort();
 }

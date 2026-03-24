@@ -1,4 +1,4 @@
-import { buildPrompt } from "./prompt.js";
+import { buildPrompt, buildSystemPrompt } from "./prompt.js";
 import { callClaude } from "./providers/claude.js";
 import { callOllama, streamOllama } from "./providers/ollama.js";
 import { callOpenAI, streamOpenAI } from "./providers/openai.js";
@@ -12,8 +12,7 @@ export async function generateCommitMessage({
     stream = false,
     onToken,
 }) {
-    const system =
-        "You are a senior developer assistant that writes clear, conventional commit messages.";
+    const system = buildSystemPrompt(provider);
     const user = buildPrompt(provider, diff, { truncated });
 
     let raw = "";

@@ -13,7 +13,7 @@ export const COMMIT_TYPES = [
 ];
 
 export const DEFAULT_MAX_DIFF_CHARS = 50000;
-export const DEFAULT_CLAUDE_MODEL = "claude-3-5-sonnet-latest";
+export const DEFAULT_CLAUDE_MODEL = "claude-3-5-haiku-20241022";
 export const DEFAULT_OLLAMA_MODEL = "llama3.1";
 export const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
 export const DEFAULT_PROVIDER = "claude";

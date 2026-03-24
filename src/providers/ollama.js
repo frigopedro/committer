@@ -8,8 +8,8 @@ export async function callOllama({ system, user, model, host }) {
             model,
             stream: false,
             options: {
-                temperature: 0.2,
-                num_predict: 256,
+                temperature: 0.1,
+                num_predict: 128,
             },
             messages: [
                 { role: "system", content: system },
@@ -37,8 +37,8 @@ export async function streamOllama({ system, user, model, host, onToken }) {
             model,
             stream: true,
             options: {
-                temperature: 0.2,
-                num_predict: 256,
+                temperature: 0.1,
+                num_predict: 128,
             },
             messages: [
                 { role: "system", content: system },

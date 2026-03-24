@@ -62,50 +62,42 @@ function buildClaudePrompt(diff, { truncated, types }) {
 
 function buildLlamaPrompt(diff, { truncated, types }) {
     return [
-        "Write a git commit message from this diff.",
+        "Write a git commit message.",
         "",
-        "Only output the commit message.",
-        "Do not explain the code.",
-        "Do not summarize the code.",
-        "Do not give observations.",
-        "Do not give suggestions.",
-        "Do not use markdown.",
-        "Do not use bullet points.",
-        "Do not use numbering.",
-        "Do not use quotes.",
-        "Do not add any text before the commit message.",
-        "Do not add any text after the commit message.",
+        "ONLY output the commit message.",
+        "NO explanations.",
+        "NO summaries.",
+        "NO bullet points.",
+        "NO numbered lists.",
+        "NO markdown.",
+        "NO extra text.",
         "",
-        "Required format:",
+        "Format EXACTLY:",
         "<type>(optional-scope)!: <description>",
         "",
         "<body paragraph>",
         "",
         `Allowed types: ${types}.`,
         "Use conventional commits.",
-        "Use imperative mood.",
-        "Use lower-case description.",
-        "No trailing period in the subject.",
-        "Keep the subject under 72 characters.",
-        "Body is required.",
-        "Body must be 2 to 4 sentences.",
+        "Subject: imperative, lower-case, no period, max 72 chars.",
+        "Body: 2-3 sentences.",
         "No footer.",
-        "Choose one main change only.",
-        "Be specific.",
-        "Do not invent details not visible in the diff.",
-        truncated ? "The diff is truncated. Only describe visible changes." : "",
         "",
-        "Bad output:",
+        truncated ? "Diff is truncated. Do not guess missing parts." : "",
+        "",
+        "BAD OUTPUT:",
         "The provided code appears to be...",
-        "Here is a summary of the changes:",
+        "Here are some observations:",
         "1. Updated function...",
         "",
-        "Good output:",
-        "feat(openai): return structured json responses for commit generation",
+        "GOOD OUTPUT:",
+        "feat(api): add structured json response handling",
         "",
-        "Configure the OpenAI provider to request JSON object responses and tune",
-        "generation settings for more consistent commit message output. Adjust",
-        "temperature and token limits to improve reliability and keep responses focused.",
+        "Update API providers to support structured JSON responses and improve",
+        "response parsing. Adjust request configuration to ensure consistent",
+        "output formatting across providers.",
+        "",
+        "Now output ONLY the commit message.",
         "",
         "Diff:",
         diff,
@@ -125,4 +117,22 @@ export function buildPrompt(provider, diff, { truncated }) {
     }
 
     return buildOpenAIPrompt(diff, { truncated, types });
+}
+
+export function buildSystemPrompt(provider) {
+    const base =
+        "You are a senior developer assistant that writes clear, conventional commit messages.";
+    const p = (provider ?? "").toLowerCase();
+
+    if (p === "ollama" || p.includes("llama")) {
+        return [
+            base,
+            "Follow instructions strictly.",
+            "Return only the commit message.",
+            "No markdown, no bullet lists, no numbering.",
+            "Use exactly one blank line between subject and body.",
+        ].join("\n");
+    }
+
+    return base;
 }

@@ -7,6 +7,7 @@ import {
 } from "./constants.js";
 import { promptNumber, promptSelect, writeLine } from "./ui.js";
 import { selectOllamaModel } from "./ollama.js";
+import { selectClaudeModel } from "./claude.js";
 import { writeConfig } from "./config.js";
 
 export async function runOnboarding({ rl, configPath, ollamaHost }) {
@@ -36,6 +37,16 @@ export async function runOnboarding({ rl, configPath, ollamaHost }) {
 
   if (provider === "openai") {
     model = DEFAULT_OPENAI_MODEL;
+  }
+
+  if (provider === "claude") {
+    try {
+      model = await selectClaudeModel({ rl });
+    } catch (error) {
+      writeLine(`⚠️ Claude model selection failed: ${error.message}`);
+      writeLine(`↩️ Falling back to ${DEFAULT_CLAUDE_MODEL}.`);
+      model = DEFAULT_CLAUDE_MODEL;
+    }
   }
 
   const diffMode = await promptSelect({
