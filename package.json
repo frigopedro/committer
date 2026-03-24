@@ -1,13 +1,32 @@
 {
-  "name": "committer",
-  "version": "0.1.0",
-  "description": "Generate conventional commit messages using AI",
-  "type": "module",
-  "bin": {
-    "committer": "index.js"
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "license": "MIT"
+    "name": "@frigopedro/committer",
+    "version": "0.1.1",
+    "description": "Generate conventional commit messages using AI",
+    "type": "module",
+    "bin": {
+        "committer": "index.js"
+    },
+    "engines": {
+        "node": ">=18"
+    },
+    "license": "MIT",
+    "keywords": [
+        "git",
+        "commit",
+        "conventional-commits",
+        "ai",
+        "commit-message",
+        "commit-generator",
+        "commit-bot",
+        "ai-commit",
+        "cli"
+    ],
+    "files": [
+        "index.js",
+        "src",
+        "README.md"
+    ],
+    "publishConfig": {
+        "access": "public"
+    }
 }
