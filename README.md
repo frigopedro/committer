@@ -53,6 +53,12 @@ committer --staged
 committer --all
 ```
 
+Generate a PR title and description from commits to a target branch:
+
+```bash
+committer --pr origin/dev
+```
+
 If you run with `--provider ollama` and no model, it will list local models and let you pick one.
 
 ## Commit format ✍️

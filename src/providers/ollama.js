@@ -70,6 +70,30 @@ export class OllamaProvider extends BaseProvider {
     return this.applyUserRequest(prompt, appendText);
   }
 
+  buildPullRequestPrompt({ commits, baseBranch, customInstructions }) {
+    const instructionBlock = customInstructions
+      ? `Project instructions:\n${customInstructions}\n\n`
+      : "";
+
+    return [
+      "Write a pull request title and description.",
+      "ONLY output the title and description.",
+      "NO extra text.",
+      "NO markdown fences.",
+      "Format EXACTLY:",
+      "<title>",
+      "",
+      "<markdown description>",
+      "",
+      instructionBlock,
+      `Base branch: ${baseBranch}`,
+      "Commits:",
+      commits,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
     async generate({ system, user }) {
         const response = await fetch(`${this.host}/api/chat`, {
             method: "POST",

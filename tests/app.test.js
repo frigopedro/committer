@@ -274,3 +274,47 @@ test("handles no changes", async () => {
 
   assert.equal(exitCode, 0);
 });
+
+test("generates PR content from commits", async () => {
+  const ui = createUi();
+  const git = {
+    ensureRepo: () => {},
+    getDiff: () => "diff",
+    truncateDiff: (diff) => ({ diff, truncated: false }),
+    getCurrentBranch: () => "my-branch",
+    getCommitsSince: (base, head) => `${base}..${head}`,
+    commitWithMessage: async () => 0,
+  };
+
+  let received = "";
+  const ai = {
+    async generateCommitMessage() {
+      return "";
+    },
+    async generatePullRequest({ commits, baseBranch }) {
+      received = `${baseBranch}::${commits}`;
+      return "PR Title\n\n- Item";
+    },
+  };
+
+  const exitCode = await runApp({
+    argv: [],
+    args: createArgs({ pr: "origin/dev" }),
+    env: {},
+    ui,
+    git,
+    ai,
+    config: {
+      getConfigPath: () => "",
+      readConfig: async () => ({ provider: "openai", model: "gpt-4o" }),
+      runOnboarding: async () => ({}),
+    },
+    providerRegistry: { getProviderClass: () => null },
+    files: { readTextFile: async () => null },
+    rl: createReadline(),
+    createSpinner: () => () => {},
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(received, "origin/dev::origin/dev..my-branch");
+});

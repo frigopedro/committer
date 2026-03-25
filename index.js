@@ -5,7 +5,7 @@ import { stdin as input, stdout as output } from "node:process";
 
 import { parseArgs } from "./src/args.js";
 import { runApp } from "./src/app.js";
-import { generateCommitMessage } from "./src/ai.js";
+import { generateCommitMessage, generatePullRequest } from "./src/ai.js";
 import { runOnboarding } from "./src/onboarding.js";
 import { colorize, colors, write, writeLine } from "./src/ui.js";
 import { getProviderClass } from "./src/providers/registry.js";
@@ -43,7 +43,7 @@ async function main() {
         env: process.env,
         ui: { write, writeLine, colorize, colors },
         git,
-        ai: { generateCommitMessage },
+        ai: { generateCommitMessage, generatePullRequest },
         config: { getConfigPath, readConfig, runOnboarding },
         providerRegistry: { getProviderClass },
         files: { readTextFile },

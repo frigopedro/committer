@@ -28,6 +28,10 @@ export class GitClient {
     return this.runGit("rev-parse --show-toplevel");
   }
 
+  getCurrentBranch() {
+    return this.runGit("rev-parse --abbrev-ref HEAD");
+  }
+
   getDiff(mode) {
     const staged = this.runGit("diff --staged");
     const unstaged = this.runGit("diff");
@@ -39,6 +43,15 @@ export class GitClient {
     }
 
     return staged || unstaged;
+  }
+
+  getCommitsSince(baseRef, headRef) {
+    const base = baseRef?.trim();
+    const head = headRef?.trim() || "HEAD";
+    if (!base) {
+      throw new Error("Base branch is required to list commits.");
+    }
+    return this.runGit(`log ${base}..${head} --pretty=format:%h%x20%s`);
   }
 
   truncateDiff(diff, maxChars) {

@@ -30,3 +30,32 @@ export async function generateCommitMessage({
     raw = await providerClient.generate({ system, user });
     return cleanCommitMessage(raw);
 }
+
+export async function generatePullRequest({
+    provider,
+    model,
+    host,
+    commits,
+    baseBranch,
+    customInstructions,
+    stream = false,
+    onToken,
+}) {
+    const providerClient = createProvider(provider, { model, host });
+    const system = providerClient.buildSystemPrompt();
+    const user = providerClient.buildPullRequestPrompt({
+        commits,
+        baseBranch,
+        customInstructions,
+    });
+
+    let raw = "";
+
+    if (stream && typeof onToken === "function" && providerClient.supportsStreaming) {
+        raw = await providerClient.stream({ system, user, onToken });
+        return cleanCommitMessage(raw);
+    }
+
+    raw = await providerClient.generate({ system, user });
+    return cleanCommitMessage(raw);
+}

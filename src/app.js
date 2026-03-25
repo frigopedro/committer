@@ -89,6 +89,7 @@ function printHelp(ui) {
     "",
     "Usage:",
     "  committer [--provider claude|ollama|openai] [--model name] [--staged] [--all]",
+    "  committer --pr <base-branch>",
     "",
     "Options:",
     "  --provider            AI provider (default: claude)",
@@ -97,6 +98,7 @@ function printHelp(ui) {
     "  --all                 Combine staged + unstaged diff",
     "  --max-diff-chars       Trim diff to this many chars (default: 12000)",
     "  --prompt-append        Extra instructions appended to the prompt",
+    "  --pr                  Generate PR title/description from commits",
     "  --init                Run onboarding and write ~/.committer",
     "  --help                Show this help",
     "",
@@ -205,6 +207,8 @@ export async function runApp({
     const promptAppend =
       args.get("prompt-append") || args.get("append") || storedConfig?.promptAppend || "";
 
+    const prBase = args.get("pr");
+
     let customInstructions = "";
     if (storedConfig?.useClaudeMd) {
       const repoRoot = git.getRepoRoot();
@@ -227,6 +231,63 @@ export async function runApp({
       ? "all"
       : null;
     const diffMode = diffModeFromArgs || storedConfig?.diffMode || "auto";
+
+    if (prBase) {
+      const currentBranch = git.getCurrentBranch();
+      const commits = git.getCommitsSince(prBase, currentBranch);
+      if (!commits.trim()) {
+        ui.writeLine("🟡 No commits found for PR generation.");
+        return 0;
+      }
+
+      const stop = createSpinner ? createSpinner("Loading PR content") : () => {};
+      let spinnerStopped = false;
+      let headerPrinted = false;
+      let streamed = false;
+
+      const stopSpinner = () => {
+        if (spinnerStopped) return;
+        spinnerStopped = true;
+        stop();
+      };
+
+      const startOutput = () => {
+        if (headerPrinted) return;
+        stopSpinner();
+        ui.writeLine("");
+        ui.writeLine(colorize("✨ Suggested PR title and description:", colors.bold));
+        ui.writeLine(colorize(SEPARATOR, colors.dim));
+        headerPrinted = true;
+      };
+
+      let prContent = await ai.generatePullRequest({
+        provider,
+        model,
+        host: ollamaHost,
+        commits,
+        baseBranch: prBase,
+        customInstructions,
+        stream: true,
+        onToken: (chunk) => {
+          streamed = true;
+          startOutput();
+          ui.write(chunk);
+        },
+      });
+
+      stopSpinner();
+      if (!headerPrinted) {
+        startOutput();
+      }
+
+      if (!streamed && prContent) {
+        ui.writeLine(prContent);
+      }
+
+      ui.writeLine("");
+      ui.writeLine(colorize(SEPARATOR, colors.dim));
+      return 0;
+    }
 
     if (shouldAddAll) {
       ui.writeLine(colorize("📦 Staging all changes (git add .)...", colors.dim));

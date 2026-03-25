@@ -45,6 +45,33 @@ export class ClaudeProvider extends BaseProvider {
     return this.applyUserRequest(prompt, appendText);
   }
 
+  buildPullRequestPrompt({ commits, baseBranch, customInstructions }) {
+    const instructionBlock = customInstructions
+      ? `Project instructions:\n${customInstructions}\n\n`
+      : "";
+
+    return [
+      "You are preparing a pull request.",
+      "Return only the PR title and description.",
+      "Format:",
+      "<title>",
+      "",
+      "<markdown description>",
+      "",
+      "Rules:",
+      "- Title should be concise and descriptive.",
+      "- Description must be valid Markdown.",
+      "- Summarize the intent and key changes from the commits.",
+      "- Do not include code fences or extra commentary.",
+      instructionBlock,
+      `Base branch: ${baseBranch}`,
+      "Commits:",
+      commits,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
+
   async generate({ system, user }) {
     const apiKey =
       process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || "";

@@ -50,6 +50,10 @@ export class BaseProvider {
     throw new Error("Provider buildPrompt() not implemented.");
   }
 
+  buildPullRequestPrompt() {
+    throw new Error("Provider buildPullRequestPrompt() not implemented.");
+  }
+
   async generate() {
     throw new Error("Provider generate() not implemented.");
   }
