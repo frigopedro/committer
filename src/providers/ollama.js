@@ -65,7 +65,7 @@ export class OllamaProvider extends BaseProvider {
     ]
       .filter(Boolean)
       .join("\n");
-    return this.appendPrompt(prompt, appendText);
+    return this.applyUserRequest(prompt, appendText);
   }
 
     async generate({ system, user }) {

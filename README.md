@@ -115,3 +115,9 @@ You can override `promptAppend` per run with `--prompt-append`.
 - `ANTHROPIC_API_KEY` or `CLAUDE_API_KEY`: Claude API key
 - `OPENAI_API_KEY`: OpenAI API key
 - `AI_COMMIT_OLLAMA_HOST`: Ollama host (default `http://localhost:11434`)
+
+## Tests 🧪
+
+```bash
+npm test
+```

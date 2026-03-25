@@ -6,9 +6,12 @@
     "bin": {
         "committer": "index.js"
     },
-    "engines": {
-        "node": ">=18"
-    },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
     "license": "MIT",
     "keywords": [
         "git",

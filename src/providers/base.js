@@ -12,10 +12,23 @@ export class BaseProvider {
     return false;
   }
 
-  appendPrompt(prompt, appendText) {
+  applyUserRequest(prompt, appendText, anchor = "Diff:") {
     const extra = (appendText ?? "").trim();
     if (!extra) return prompt;
-    return `${prompt}\n\nAdditional instructions:\n${extra}`;
+
+    const insertBlock = [
+      "User request:",
+      extra,
+      "Ensure the commit message reflects this request.",
+      "",
+    ].join("\n");
+
+    const index = prompt.lastIndexOf(anchor);
+    if (index === -1) {
+      return `${prompt}\n\n${insertBlock}`;
+    }
+
+    return `${prompt.slice(0, index)}${insertBlock}${prompt.slice(index)}`;
   }
 
   buildSystemPrompt() {

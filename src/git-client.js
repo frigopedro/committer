@@ -12,6 +12,10 @@ export class GitClient {
     }).trimEnd();
   }
 
+  stageAll() {
+    this.runGit("add .");
+  }
+
   ensureRepo() {
     try {
       this.runGit("rev-parse --show-toplevel");
