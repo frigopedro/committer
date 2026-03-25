@@ -20,9 +20,11 @@ export class OllamaProvider extends BaseProvider {
         ].join("\n");
     }
 
-  buildPrompt(diff, { truncated, appendText }) {
+  buildPrompt(diff, { truncated, appendText, customInstructions }) {
     const types = COMMIT_TYPES.join(", ");
-    const prompt = [
+    const prompt = customInstructions
+      ? this.buildCustomPrompt(customInstructions, { diff, truncated })
+      : [
       "Write a git commit message.",
             "",
             "ONLY output the commit message.",

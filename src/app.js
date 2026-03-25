@@ -122,6 +122,7 @@ export async function runApp({
   ai,
   config,
   providerRegistry,
+  files,
   rl,
   createSpinner,
 }) {
@@ -204,6 +205,22 @@ export async function runApp({
     const promptAppend =
       args.get("prompt-append") || args.get("append") || storedConfig?.promptAppend || "";
 
+    let customInstructions = "";
+    if (storedConfig?.useClaudeMd) {
+      const repoRoot = git.getRepoRoot();
+      const claudePath = `${repoRoot}/claude.md`;
+      try {
+        const claudeContent = await files.readTextFile(claudePath);
+        if (claudeContent && claudeContent.trim()) {
+          customInstructions = claudeContent.trim();
+        } else {
+          ui.writeLine("⚠️ claude.md not found or empty. Using default prompts.");
+        }
+      } catch (error) {
+        ui.writeLine(`⚠️ ${error.message} Using default prompts.`);
+      }
+    }
+
     const diffModeFromArgs = args.get("staged")
       ? "staged"
       : args.get("all")
@@ -257,6 +274,7 @@ export async function runApp({
         truncated,
         host: ollamaHost,
         promptAppend,
+        customInstructions,
         stream: true,
         onToken: (chunk) => {
           streamed = true;

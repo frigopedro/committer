@@ -31,6 +31,17 @@ export class BaseProvider {
     return `${prompt.slice(0, index)}${insertBlock}${prompt.slice(index)}`;
   }
 
+  buildCustomPrompt(instructions, { diff, truncated }) {
+    const parts = [
+      instructions?.trim() || "",
+      truncated ? "The diff is truncated. Only describe visible changes." : "",
+      "Diff:",
+      diff,
+    ].filter(Boolean);
+
+    return parts.join("\n\n");
+  }
+
   buildSystemPrompt() {
     throw new Error("Provider buildSystemPrompt() not implemented.");
   }

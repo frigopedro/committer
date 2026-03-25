@@ -97,7 +97,7 @@ export async function runOnboarding({ rl, configPath, ollamaHost }) {
         });
     }
 
-    const diffMode = await promptSelect({
+  const diffMode = await promptSelect({
         rl,
         question: "Which diff should committer use?",
         defaultValue: "auto",
@@ -108,20 +108,32 @@ export async function runOnboarding({ rl, configPath, ollamaHost }) {
         ],
     });
 
-    const maxDiffChars = await promptNumber({
-        rl,
-        question: "Max diff characters to send",
-        defaultValue: DEFAULT_MAX_DIFF_CHARS,
-        min: 500,
-    });
+  const maxDiffChars = await promptNumber({
+    rl,
+    question: "Max diff characters to send",
+    defaultValue: DEFAULT_MAX_DIFF_CHARS,
+    min: 500,
+  });
 
-    const config = {
-        version: CONFIG_VERSION,
-        provider,
-        model,
-        diffMode,
-        maxDiffChars,
-    };
+  const useClaudeMd =
+    (await promptSelect({
+      rl,
+      question: "Use claude.md instructions if present?",
+      defaultValue: "no",
+      options: [
+        { value: "yes", label: "Yes" },
+        { value: "no", label: "No" },
+      ],
+    })) === "yes";
+
+  const config = {
+    version: CONFIG_VERSION,
+    provider,
+    model,
+    diffMode,
+    maxDiffChars,
+    useClaudeMd,
+  };
 
     await writeConfig(configPath, config);
     writeLine(`✅ Saved config to ${configPath}.`);

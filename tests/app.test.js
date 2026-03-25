@@ -71,6 +71,7 @@ test("stages all when argv includes dot", async () => {
       runOnboarding: async () => ({}),
     },
     providerRegistry: { getProviderClass: () => null },
+    files: { readTextFile: async () => null },
     rl: createReadline(["n"]),
     createSpinner: () => () => {},
   });
@@ -112,6 +113,7 @@ test("commits when user accepts", async () => {
       runOnboarding: async () => ({}),
     },
     providerRegistry: { getProviderClass: () => null },
+    files: { readTextFile: async () => null },
     rl: createReadline(["y"]),
     createSpinner: () => () => {},
   });
@@ -151,6 +153,7 @@ test("regenerates on empty response", async () => {
       runOnboarding: async () => ({}),
     },
     providerRegistry: { getProviderClass: () => null },
+    files: { readTextFile: async () => null },
     rl: createReadline(["n"]),
     createSpinner: () => () => {},
   });
@@ -189,12 +192,57 @@ test("passes prompt-append to AI", async () => {
       runOnboarding: async () => ({}),
     },
     providerRegistry: { getProviderClass: () => null },
+    files: { readTextFile: async () => null },
     rl: createReadline(["n"]),
     createSpinner: () => () => {},
   });
 
   assert.equal(exitCode, 2);
   assert.equal(append, "mention tests");
+});
+
+test("uses claude.md instructions when enabled", async () => {
+  const ui = createUi();
+  const git = {
+    ensureRepo: () => {},
+    getRepoRoot: () => "/repo",
+    getDiff: () => "diff",
+    truncateDiff: (diff) => ({ diff, truncated: false }),
+    commitWithMessage: async () => 0,
+  };
+
+  let instructions = "";
+  const ai = {
+    async generateCommitMessage({ customInstructions }) {
+      instructions = customInstructions;
+      return "feat: test\n\nbody";
+    },
+  };
+
+  const exitCode = await runApp({
+    argv: [],
+    args: createArgs(),
+    env: {},
+    ui,
+    git,
+    ai,
+    config: {
+      getConfigPath: () => "",
+      readConfig: async () => ({
+        provider: "openai",
+        model: "gpt-4o",
+        useClaudeMd: true,
+      }),
+      runOnboarding: async () => ({}),
+    },
+    providerRegistry: { getProviderClass: () => null },
+    files: { readTextFile: async () => "Use these rules" },
+    rl: createReadline(["n"]),
+    createSpinner: () => () => {},
+  });
+
+  assert.equal(exitCode, 2);
+  assert.equal(instructions, "Use these rules");
 });
 
 test("handles no changes", async () => {
@@ -219,6 +267,7 @@ test("handles no changes", async () => {
       runOnboarding: async () => ({}),
     },
     providerRegistry: { getProviderClass: () => null },
+    files: { readTextFile: async () => null },
     rl: createReadline(),
     createSpinner: () => () => {},
   });

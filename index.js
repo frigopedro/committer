@@ -11,6 +11,7 @@ import { colorize, colors, write, writeLine } from "./src/ui.js";
 import { getProviderClass } from "./src/providers/registry.js";
 import { GitClient } from "./src/git-client.js";
 import { getConfigPath, readConfig } from "./src/config.js";
+import { readTextFile } from "./src/files.js";
 
 const SPINNER_FRAMES = ["|", "/", "-", "\\"];
 
@@ -45,6 +46,7 @@ async function main() {
         ai: { generateCommitMessage },
         config: { getConfigPath, readConfig, runOnboarding },
         providerRegistry: { getProviderClass },
+        files: { readTextFile },
         rl,
         createSpinner,
     });

@@ -96,6 +96,9 @@ committer --provider ollama
 `~/.committer` is a JSON config shared across all repos.
 You can override `promptAppend` per run with `--prompt-append`.
 
+If `useClaudeMd` is `true`, committer will load `claude.md` from the current
+repo root and use its instructions instead of the built-in prompt.
+
 ```json
 {
   "version": 1,
@@ -103,7 +106,8 @@ You can override `promptAppend` per run with `--prompt-append`.
   "model": "llama3.1",
   "diffMode": "auto",
   "maxDiffChars": 12000,
-  "promptAppend": ""
+  "promptAppend": "",
+  "useClaudeMd": false
 }
 ```
 
@@ -121,3 +125,7 @@ You can override `promptAppend` per run with `--prompt-append`.
 ```bash
 npm test
 ```
+
+## Contributing 🤝
+
+Contributions are welcome! Feel free to open issues or pull requests.

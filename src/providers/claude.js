@@ -13,9 +13,11 @@ export class ClaudeProvider extends BaseProvider {
     ].join("\n");
   }
 
-  buildPrompt(diff, { truncated, appendText }) {
+  buildPrompt(diff, { truncated, appendText, customInstructions }) {
     const types = COMMIT_TYPES.join(", ");
-    const prompt = [
+    const prompt = customInstructions
+      ? this.buildCustomPrompt(customInstructions, { diff, truncated })
+      : [
       "You are writing a professional git commit message for a maintainer.",
       "Return only the commit message.",
       "",

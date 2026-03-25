@@ -14,9 +14,11 @@ export class OpenAIProvider extends BaseProvider {
         return "You are a senior developer assistant that writes clear, conventional commit messages.";
     }
 
-  buildPrompt(diff, { truncated, appendText }) {
+  buildPrompt(diff, { truncated, appendText, customInstructions }) {
     const types = COMMIT_TYPES.join(", ");
-    const prompt = [
+    const prompt = customInstructions
+      ? this.buildCustomPrompt(customInstructions, { diff, truncated })
+      : [
       "Write a professional git commit message from this diff.",
       "Return only the commit message.",
             "No preface, no commentary, no markdown.",

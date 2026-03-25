@@ -8,6 +8,7 @@ export async function generateCommitMessage({
     truncated,
     host,
     promptAppend,
+    customInstructions,
     stream = false,
     onToken,
 }) {
@@ -16,6 +17,7 @@ export async function generateCommitMessage({
     const user = providerClient.buildPrompt(diff, {
         truncated,
         appendText: promptAppend,
+        customInstructions,
     });
 
     let raw = "";
