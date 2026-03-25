@@ -1,6 +1,6 @@
 {
     "name": "@frigopedro/committer",
-    "version": "0.1.2",
+    "version": "0.2.0",
     "description": "Generate conventional commit messages using AI",
     "type": "module",
     "bin": {
