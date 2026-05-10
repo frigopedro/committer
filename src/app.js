@@ -275,7 +275,21 @@ export async function runApp({
 
     if (prBase) {
       const currentBranch = git.getCurrentBranch();
-      const commits = git.getCommitsSince(prBase, currentBranch);
+      let commits;
+      try {
+        commits = git.getCommitsSince(prBase, currentBranch);
+      } catch {
+        ui.writeLine(
+          colorize(
+            `❌ Branch "${prBase}" not found locally or on the remote.`,
+            colors.red
+          )
+        );
+        ui.writeLine(
+          colorize(`   Run: git fetch && committer --pr ${prBase}`, colors.dim)
+        );
+        return 1;
+      }
       if (!commits.trim()) {
         ui.writeLine("🟡 No commits found for PR generation.");
         return 0;
