@@ -9,8 +9,8 @@ Thanks for your interest. This document covers everything you need to get the pr
 You need **Node.js 18+** and **npm**.
 
 ```bash
-git clone https://github.com/frigopedro/conventional-ai-commit.git
-cd conventional-ai-commit
+git clone https://github.com/frigopedro/committer.git
+cd committer
 npm link
 ```
 
@@ -27,7 +27,7 @@ committer --help
 ## Project structure
 
 ```
-conventional-ai-commit/
+committer/
 ├── index.js                 Entry point — spinner, readline, wires everything together
 ├── src/
 │   ├── app.js               Main interactive loop (commit + PR flows)
