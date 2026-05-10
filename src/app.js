@@ -11,6 +11,20 @@ import { detectPlatform } from "./platforms/index.js";
 const PROVIDERS = ["claude", "ollama", "openai"];
 const SEPARATOR = "-".repeat(64);
 
+function renderPr(pr, colorize, colors) {
+  const lines = [`${colorize(pr.title, colors.bold)}`, ""];
+  for (const line of pr.description.split("\n")) {
+    if (line.startsWith("## ")) {
+      lines.push(colorize(line.slice(3), colors.bold));
+    } else if (line.startsWith("- ")) {
+      lines.push("• " + line.slice(2));
+    } else {
+      lines.push(line);
+    }
+  }
+  return lines.join("\n");
+}
+
 function normalizeProvider(provider) {
   if (provider === "chatgpt") return "openai";
   return provider;
@@ -241,84 +255,98 @@ export async function runApp({
         return 0;
       }
 
-      const MAX_PR_RETRIES = 3;
-      let pr = null;
-
-      for (let attempt = 1; attempt <= MAX_PR_RETRIES; attempt++) {
-        const spinnerMessages =
-          attempt === 1
-            ? [
-                "Analyzing commits...",
-                "Crafting title...",
-                "Writing description...",
-                "Almost there...",
-              ]
-            : [
-                `Retrying... (${attempt}/${MAX_PR_RETRIES})`,
-                "Rethinking structure...",
-                "Almost there...",
-              ];
-
-        const stop = createSpinner ? createSpinner(spinnerMessages) : () => {};
-
-        try {
-          pr = await ai.generatePullRequest({
-            provider,
-            model,
-            host: ollamaHost,
-            commits,
-            baseBranch: prBase,
-            customInstructions,
-          });
-          stop();
-          break;
-        } catch {
-          stop();
-          if (attempt < MAX_PR_RETRIES) {
-            ui.writeLine(
-              colorize(
-                "⚠️  Response wasn't structured correctly, retrying...",
-                colors.dim
-              )
-            );
-          } else {
-            ui.writeLine(
-              colorize(
-                "❌ Failed to generate a valid PR after multiple attempts.",
-                colors.red
-              )
-            );
-            return 0;
-          }
-        }
-      }
-
-      ui.writeLine(JSON.stringify(pr, null, 2));
-
       const remoteUrl = git.getRemoteUrl();
       const platform = detectPlatform(remoteUrl);
+      const MAX_PR_RETRIES = 3;
+      let pr = null;
+      let currentAppend = "";
 
-      if (platform) {
+      while (true) {
+        for (let attempt = 1; attempt <= MAX_PR_RETRIES; attempt++) {
+          const spinnerMessages =
+            attempt === 1
+              ? [
+                  "Analyzing commits...",
+                  "Crafting title...",
+                  "Writing description...",
+                  "Almost there...",
+                ]
+              : [
+                  `Retrying... (${attempt}/${MAX_PR_RETRIES})`,
+                  "Rethinking structure...",
+                  "Almost there...",
+                ];
+
+          const stop = createSpinner ? createSpinner(spinnerMessages) : () => {};
+
+          try {
+            pr = await ai.generatePullRequest({
+              provider,
+              model,
+              host: ollamaHost,
+              commits,
+              baseBranch: prBase,
+              customInstructions,
+              appendText: currentAppend,
+            });
+            stop();
+            break;
+          } catch {
+            stop();
+            if (attempt < MAX_PR_RETRIES) {
+              ui.writeLine(
+                colorize(
+                  "⚠️  Response wasn't structured correctly, retrying...",
+                  colors.dim
+                )
+              );
+            } else {
+              ui.writeLine(
+                colorize(
+                  "❌ Failed to generate a valid PR after multiple attempts.",
+                  colors.red
+                )
+              );
+              return 0;
+            }
+          }
+        }
+
         ui.writeLine("");
-        const createAnswer = await rl.question(
-          colorize(
-            `Create this PR on ${platform.name} automatically? (y/n): `,
-            colors.bold
-          )
-        );
+        ui.writeLine(colorize("✨ Suggested PR:", colors.bold));
+        ui.writeLine(colorize(SEPARATOR, colors.dim));
+        ui.writeLine(renderPr(pr, colorize, colors));
+        ui.writeLine(colorize(SEPARATOR, colors.dim));
 
-        if (createAnswer.trim().toLowerCase() === "y") {
+        const promptLine = platform
+          ? `Use (y) to create PR on ${platform.name}, (n) to abort, (r) to regenerate: `
+          : "Use (n) to abort, (r) to regenerate: ";
+
+        const answer = await rl.question(promptLine);
+        const choice = answer.trim().toLowerCase();
+
+        if (choice === "n") {
+          ui.writeLine(colorize("🛑 PR aborted.", colors.red));
+          return EXIT_USER_ABORT;
+        }
+
+        if (choice === "r") {
+          const instruction = await rl.question(
+            colorize("Add instructions for the AI (or press Enter to skip): ", colors.dim)
+          );
+          if (instruction.trim()) currentAppend = instruction.trim();
+          ui.writeLine("🔁 Regenerating PR...");
+          continue;
+        }
+
+        if (choice === "y" && platform) {
           if (!platform.isCliInstalled()) {
             ui.writeLine(
-              colorize(
-                `⚠️  ${platform.cliName} CLI is not installed.`,
-                colors.dim
-              )
+              colorize(`⚠️  ${platform.cliName} CLI is not installed.`, colors.dim)
             );
             const installAnswer = await rl.question(
               `Install ${platform.cliName} now? (y/n): `
             );
-
             if (installAnswer.trim().toLowerCase() === "y") {
               ui.writeLine(`Installing ${platform.cliName}...`);
               try {
@@ -327,9 +355,7 @@ export async function runApp({
                   colorize(`✅ ${platform.cliName} installed.`, colors.green)
                 );
               } catch (err) {
-                ui.writeLine(
-                  colorize(`❌ Install failed: ${err.message}`, colors.red)
-                );
+                ui.writeLine(colorize(`❌ Install failed: ${err.message}`, colors.red));
                 return 0;
               }
             } else {
@@ -346,14 +372,16 @@ export async function runApp({
             description: pr.description,
             baseBranch: prBase,
           });
-
-          if (!ok) {
-            ui.writeLine(colorize("❌ PR creation failed.", colors.red));
-          }
+          if (!ok) ui.writeLine(colorize("❌ PR creation failed.", colors.red));
+          return 0;
         }
-      }
 
-      return 0;
+        ui.writeLine(
+          platform
+            ? "Please enter y, n, or r."
+            : "Please enter n or r."
+        );
+      }
     }
 
     if (shouldAddAll) {

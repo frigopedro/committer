@@ -47,9 +47,9 @@ export class OpenAIProvider extends BaseProvider {
       .join("\n");
   }
 
-  buildPullRequestPrompt({ commits, baseBranch, customInstructions }) {
+  buildPullRequestPrompt({ commits, baseBranch, customInstructions, appendText }) {
     const instructionBlock = customInstructions
-      ? `Project instructions:\n${customInstructions}\n\n`
+      ? `Project instructions:\n${customInstructions}`
       : "";
 
     return [
@@ -72,6 +72,7 @@ export class OpenAIProvider extends BaseProvider {
       '{"title":"feat: add user authentication","description":"## Summary\\nAdd JWT-based login and token refresh.\\n\\n## Changes\\n- Add POST /auth/login endpoint\\n- Add JWT middleware\\n\\n## Impact\\nNo breaking changes."}',
       "",
       instructionBlock,
+      appendText?.trim() || "",
       `Base branch: ${baseBranch}`,
       "Commits:",
       commits,

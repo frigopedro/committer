@@ -44,6 +44,7 @@ export async function generatePullRequest({
     commits,
     baseBranch,
     customInstructions,
+    appendText,
 }) {
     const providerClient = createProvider(provider, { model, host });
     const system = providerClient.buildSystemPrompt();
@@ -51,6 +52,7 @@ export async function generatePullRequest({
         commits,
         baseBranch,
         customInstructions,
+        appendText,
     });
 
     const raw = await providerClient.generate({ system, user });
