@@ -32,6 +32,14 @@ export class GitClient {
     return this.runGit("rev-parse --abbrev-ref HEAD");
   }
 
+  getRemoteUrl(remote = "origin") {
+    try {
+      return this.runGit(`remote get-url ${remote}`);
+    } catch {
+      return "";
+    }
+  }
+
   getDiff(mode) {
     const staged = this.runGit("diff --staged");
     const unstaged = this.runGit("diff");

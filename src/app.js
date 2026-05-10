@@ -6,6 +6,7 @@ import {
   DEFAULT_PROVIDER,
   EXIT_USER_ABORT,
 } from "./constants.js";
+import { detectPlatform } from "./platforms/index.js";
 
 const PROVIDERS = ["claude", "ollama", "openai"];
 const SEPARATOR = "-".repeat(64);
@@ -240,23 +241,118 @@ export async function runApp({
         return 0;
       }
 
-      const stop = createSpinner ? createSpinner("Generating PR...") : () => {};
+      const MAX_PR_RETRIES = 3;
+      let pr = null;
 
-      let pr;
-      try {
-        pr = await ai.generatePullRequest({
-          provider,
-          model,
-          host: ollamaHost,
-          commits,
-          baseBranch: prBase,
-          customInstructions,
-        });
-      } finally {
-        stop();
+      for (let attempt = 1; attempt <= MAX_PR_RETRIES; attempt++) {
+        const spinnerMessages =
+          attempt === 1
+            ? [
+                "Analyzing commits...",
+                "Crafting title...",
+                "Writing description...",
+                "Almost there...",
+              ]
+            : [
+                `Retrying... (${attempt}/${MAX_PR_RETRIES})`,
+                "Rethinking structure...",
+                "Almost there...",
+              ];
+
+        const stop = createSpinner ? createSpinner(spinnerMessages) : () => {};
+
+        try {
+          pr = await ai.generatePullRequest({
+            provider,
+            model,
+            host: ollamaHost,
+            commits,
+            baseBranch: prBase,
+            customInstructions,
+          });
+          stop();
+          break;
+        } catch {
+          stop();
+          if (attempt < MAX_PR_RETRIES) {
+            ui.writeLine(
+              colorize(
+                "⚠️  Response wasn't structured correctly, retrying...",
+                colors.dim
+              )
+            );
+          } else {
+            ui.writeLine(
+              colorize(
+                "❌ Failed to generate a valid PR after multiple attempts.",
+                colors.red
+              )
+            );
+            return 0;
+          }
+        }
       }
 
       ui.writeLine(JSON.stringify(pr, null, 2));
+
+      const remoteUrl = git.getRemoteUrl();
+      const platform = detectPlatform(remoteUrl);
+
+      if (platform) {
+        ui.writeLine("");
+        const createAnswer = await rl.question(
+          colorize(
+            `Create this PR on ${platform.name} automatically? (y/n): `,
+            colors.bold
+          )
+        );
+
+        if (createAnswer.trim().toLowerCase() === "y") {
+          if (!platform.isCliInstalled()) {
+            ui.writeLine(
+              colorize(
+                `⚠️  ${platform.cliName} CLI is not installed.`,
+                colors.dim
+              )
+            );
+            const installAnswer = await rl.question(
+              `Install ${platform.cliName} now? (y/n): `
+            );
+
+            if (installAnswer.trim().toLowerCase() === "y") {
+              ui.writeLine(`Installing ${platform.cliName}...`);
+              try {
+                platform.installCli();
+                ui.writeLine(
+                  colorize(`✅ ${platform.cliName} installed.`, colors.green)
+                );
+              } catch (err) {
+                ui.writeLine(
+                  colorize(`❌ Install failed: ${err.message}`, colors.red)
+                );
+                return 0;
+              }
+            } else {
+              ui.writeLine(
+                `Install ${platform.cliName} manually and re-run to create the PR.`
+              );
+              return 0;
+            }
+          }
+
+          ui.writeLine(colorize("Creating PR...", colors.dim));
+          const ok = platform.createPr({
+            title: pr.title,
+            description: pr.description,
+            baseBranch: prBase,
+          });
+
+          if (!ok) {
+            ui.writeLine(colorize("❌ PR creation failed.", colors.red));
+          }
+        }
+      }
+
       return 0;
     }
 
@@ -277,6 +373,7 @@ export async function runApp({
 
     const { diff: trimmedDiff, truncated } = git.truncateDiff(diff, maxDiffChars);
     let message = "";
+    let currentAppend = promptAppend;
 
     while (true) {
       const stop = createSpinner ? createSpinner("Loading commit message") : () => {};
@@ -305,7 +402,7 @@ export async function runApp({
         diff: trimmedDiff,
         truncated,
         host: ollamaHost,
-        promptAppend,
+        promptAppend: currentAppend,
         customInstructions,
         stream: true,
         onToken: (chunk) => {
@@ -349,6 +446,12 @@ export async function runApp({
       }
 
       if (choice === "r") {
+        const instruction = await rl.question(
+          colorize("Add instructions for the AI (or press Enter to skip): ", colors.dim)
+        );
+        if (instruction.trim()) {
+          currentAppend = instruction.trim();
+        }
         ui.writeLine("🔁 Regenerating commit message...");
         continue;
       }

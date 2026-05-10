@@ -13,22 +13,43 @@ import { GitClient } from "./src/git-client.js";
 import { getConfigPath, readConfig } from "./src/config.js";
 import { readTextFile } from "./src/files.js";
 
-const SPINNER_FRAMES = ["|", "/", "-", "\\"];
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
-function createSpinner(text) {
+// textOrMessages: string or string[] — if array, cycles through messages every 2.5s
+function createSpinner(textOrMessages) {
+    const messages = Array.isArray(textOrMessages) ? textOrMessages : [textOrMessages];
     let frame = 0;
-    const label = colorize(text, colors.dim);
-    const icon = colorize(SPINNER_FRAMES[frame], colors.dim);
-    output.write(`${label} ${icon}`);
-    const timer = setInterval(() => {
+    let msgIndex = 0;
+    let lastLineLen = 0;
+
+    const render = () => {
+        const spinner = colorize(SPINNER_FRAMES[frame], colors.dim);
+        const label = colorize(messages[msgIndex], colors.dim);
+        const line = `${spinner} ${label}`;
+        const padding = " ".repeat(Math.max(0, lastLineLen - line.length));
+        output.write(`\r${line}${padding}`);
+        lastLineLen = line.length;
+    };
+
+    render();
+
+    const frameTimer = setInterval(() => {
         frame = (frame + 1) % SPINNER_FRAMES.length;
-        const next = colorize(SPINNER_FRAMES[frame], colors.dim);
-        output.write(`\r${label} ${next}`);
-    }, 120);
+        render();
+    }, 80);
+
+    const msgTimer =
+        messages.length > 1
+            ? setInterval(() => {
+                  msgIndex = (msgIndex + 1) % messages.length;
+                  render();
+              }, 2500)
+            : null;
 
     return () => {
-        clearInterval(timer);
-        output.write(`\r${" ".repeat(text.length + 2)}\r`);
+        clearInterval(frameTimer);
+        if (msgTimer) clearInterval(msgTimer);
+        output.write(`\r${" ".repeat(lastLineLen)}\r`);
     };
 }
 

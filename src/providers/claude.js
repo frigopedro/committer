@@ -15,9 +15,10 @@ export class ClaudeProvider extends BaseProvider {
 
   buildPrompt(diff, { truncated, appendText, customInstructions }) {
     const types = COMMIT_TYPES.join(", ");
-    const prompt = customInstructions
-      ? this.buildCustomPrompt(customInstructions, { diff, truncated })
-      : [
+    if (customInstructions) {
+      return this.buildCustomPrompt(customInstructions, { diff, truncated, appendText });
+    }
+    return [
       "You are writing a professional git commit message for a maintainer.",
       "Return only the commit message.",
       "",
@@ -35,6 +36,7 @@ export class ClaudeProvider extends BaseProvider {
       "Body required, 2 to 4 sentences.",
       "No footer.",
       "Focus on the main intent of the change.",
+      appendText?.trim() || "",
       truncated ? "The diff is truncated. Only describe visible changes." : "",
       "",
       "Diff:",
@@ -42,7 +44,6 @@ export class ClaudeProvider extends BaseProvider {
     ]
       .filter(Boolean)
       .join("\n");
-    return this.applyUserRequest(prompt, appendText);
   }
 
   buildPullRequestPrompt({ commits, baseBranch, customInstructions }) {

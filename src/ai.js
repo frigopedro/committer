@@ -20,6 +20,12 @@ export async function generateCommitMessage({
         customInstructions,
     });
 
+    if (process.env.DEBUG_PROMPT) {
+        console.error("\n--- SYSTEM ---\n" + system);
+        console.error("\n--- USER ---\n" + user);
+        console.error("\n--- END ---\n");
+    }
+
     let raw = "";
 
     if (stream && typeof onToken === "function" && providerClient.supportsStreaming) {

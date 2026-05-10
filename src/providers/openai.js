@@ -16,34 +16,35 @@ export class OpenAIProvider extends BaseProvider {
 
   buildPrompt(diff, { truncated, appendText, customInstructions }) {
     const types = COMMIT_TYPES.join(", ");
-    const prompt = customInstructions
-      ? this.buildCustomPrompt(customInstructions, { diff, truncated })
-      : [
+    if (customInstructions) {
+      return this.buildCustomPrompt(customInstructions, { diff, truncated, appendText });
+    }
+    return [
       "Write a professional git commit message from this diff.",
       "Return only the commit message.",
-            "No preface, no commentary, no markdown.",
-            "",
-            "Format:",
-            "<type>(optional-scope)!: <description>",
-            "",
-            "<body paragraph>",
-            "",
-            `Allowed types: ${types}.`,
-            "Use conventional commits.",
-            "Use imperative mood.",
-            "Use lower-case description.",
-            "No trailing period in the subject.",
-            "Subject under 72 characters.",
-            "Body required, 2 to 4 sentences.",
-            "No footer.",
-            truncated ? "The diff is truncated. Only describe visible changes." : "",
-            "",
+      "No preface, no commentary, no markdown.",
+      "",
+      "Format:",
+      "<type>(optional-scope)!: <description>",
+      "",
+      "<body paragraph>",
+      "",
+      `Allowed types: ${types}.`,
+      "Use conventional commits.",
+      "Use imperative mood.",
+      "Use lower-case description.",
+      "No trailing period in the subject.",
+      "Subject under 72 characters.",
+      "Body required, 2 to 4 sentences.",
+      "No footer.",
+      appendText?.trim() || "",
+      truncated ? "The diff is truncated. Only describe visible changes." : "",
+      "",
       "Diff:",
       diff,
     ]
       .filter(Boolean)
       .join("\n");
-    return this.applyUserRequest(prompt, appendText);
   }
 
   buildPullRequestPrompt({ commits, baseBranch, customInstructions }) {

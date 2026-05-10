@@ -22,52 +22,52 @@ export class OllamaProvider extends BaseProvider {
 
   buildPrompt(diff, { truncated, appendText, customInstructions }) {
     const types = COMMIT_TYPES.join(", ");
-    const prompt = customInstructions
-      ? this.buildCustomPrompt(customInstructions, { diff, truncated })
-      : [
+    if (customInstructions) {
+      return this.buildCustomPrompt(customInstructions, { diff, truncated, appendText });
+    }
+    return [
       "Write a git commit message.",
-            "",
-            "ONLY output the commit message.",
-            "NO explanations.",
-            "NO summaries.",
-            "NO bullet points.",
-            "NO numbered lists.",
-            "NO markdown.",
-            "NO extra text.",
-            "",
-            "Format EXACTLY:",
-            "<type>(optional-scope)!: <description>",
-            "",
-            "<body paragraph>",
-            "",
-            `Allowed types: ${types}.`,
-            "Use conventional commits.",
-            "Subject: imperative, lower-case, no period, max 72 chars.",
-            "Body: 2-3 sentences.",
-            "No footer.",
-            "",
-            truncated ? "Diff is truncated. Do not guess missing parts." : "",
-            "",
-            "BAD OUTPUT:",
-            "The provided code appears to be...",
-            "Here are some observations:",
-            "1. Updated function...",
-            "",
-            "GOOD OUTPUT:",
-            "feat(api): add structured json response handling",
-            "",
-            "Update API providers to support structured JSON responses and improve",
-            "response parsing. Adjust request configuration to ensure consistent",
-            "output formatting across providers.",
-            "",
-            "Now output ONLY the commit message.",
-            "",
+      "",
+      "ONLY output the commit message.",
+      "NO explanations.",
+      "NO summaries.",
+      "NO bullet points.",
+      "NO numbered lists.",
+      "NO markdown.",
+      "NO extra text.",
+      "",
+      "Format EXACTLY:",
+      "<type>(optional-scope)!: <description>",
+      "",
+      "<body paragraph>",
+      "",
+      `Allowed types: ${types}.`,
+      "Use conventional commits.",
+      "Subject: imperative, lower-case, no period, max 72 chars.",
+      "Body: 2-3 sentences.",
+      "No footer.",
+      appendText?.trim() || "",
+      truncated ? "Diff is truncated. Do not guess missing parts." : "",
+      "",
+      "BAD OUTPUT:",
+      "The provided code appears to be...",
+      "Here are some observations:",
+      "1. Updated function...",
+      "",
+      "GOOD OUTPUT:",
+      "feat(api): add structured json response handling",
+      "",
+      "Update API providers to support structured JSON responses and improve",
+      "response parsing. Adjust request configuration to ensure consistent",
+      "output formatting across providers.",
+      "",
+      "Now output ONLY the commit message.",
+      "",
       "Diff:",
       diff,
     ]
       .filter(Boolean)
       .join("\n");
-    return this.applyUserRequest(prompt, appendText);
   }
 
   buildPullRequestPrompt({ commits, baseBranch, customInstructions }) {
