@@ -370,7 +370,7 @@ export async function runApp({
           const ok = platform.createPr({
             title: pr.title,
             description: pr.description,
-            baseBranch: prBase,
+            baseBranch: git.stripRemotePrefix(prBase),
           });
           if (!ok) ui.writeLine(colorize("❌ PR creation failed.", colors.red));
           return 0;

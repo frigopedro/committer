@@ -40,6 +40,18 @@ export class GitClient {
     }
   }
 
+  stripRemotePrefix(branch) {
+    try {
+      const remotes = this.runGit("remote").split("\n").filter(Boolean);
+      for (const remote of remotes) {
+        if (branch.startsWith(`${remote}/`)) {
+          return branch.slice(remote.length + 1);
+        }
+      }
+    } catch { /* no remotes configured */ }
+    return branch;
+  }
+
   getDiff(mode) {
     const staged = this.runGit("diff --staged");
     const unstaged = this.runGit("diff");
