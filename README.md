@@ -2,6 +2,10 @@
 
 AI-powered CLI that generates [conventional commit messages](https://www.conventionalcommits.org/) and pull request descriptions from your git diff, with support for Claude, OpenAI, and local Ollama models.
 
+## Demo
+
+[![Watch the demo](https://img.youtube.com/vi/McUAdykB4Jo/maxresdefault.jpg)](https://www.youtube.com/watch?v=McUAdykB4Jo)
+
 ## Features
 
 - Streams commit messages live as they are generated

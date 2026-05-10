@@ -348,82 +348,88 @@ export async function runApp({
           ? `Use (y) to create PR on ${platform.name}, (c) to copy, (n) to abort, (r) to regenerate: `
           : "Use (c) to copy, (n) to abort, (r) to regenerate: ";
 
-        const answer = await rl.question(promptLine);
-        const choice = answer.trim().toLowerCase();
+        let regenerate = false;
+        while (true) {
+          const answer = await rl.question(promptLine);
+          const choice = answer.trim().toLowerCase();
 
-        if (choice === "n") {
-          ui.writeLine(colorize("🛑 PR aborted.", colors.red));
-          return EXIT_USER_ABORT;
-        }
+          if (choice === "n") {
+            ui.writeLine(colorize("🛑 PR aborted.", colors.red));
+            return EXIT_USER_ABORT;
+          }
 
-        if (choice === "c") {
-          const content = `${pr.title}\n\n${pr.description}`;
-          const copied = copyToClipboard(content);
-          ui.writeLine(
-            copied
-              ? colorize("📋 PR message copied to clipboard.", colors.green)
-              : colorize("❌ Could not copy — no clipboard tool found.", colors.red)
-          );
-          continue;
-        }
-
-        if (choice === "r") {
-          const instruction = await rl.question(
-            colorize("Add instructions for the AI (or press Enter to skip): ", colors.dim)
-          );
-          if (instruction.trim()) currentAppend = instruction.trim();
-          ui.writeLine("🔁 Regenerating PR...");
-          continue;
-        }
-
-        if (choice === "y" && platform) {
-          if (!platform.isCliInstalled()) {
+          if (choice === "c") {
+            const content = `${pr.title}\n\n${pr.description}`;
+            const copied = copyToClipboard(content);
             ui.writeLine(
-              colorize(`⚠️  ${platform.cliName} CLI is not installed.`, colors.dim)
+              copied
+                ? colorize("📋 PR message copied to clipboard.", colors.green)
+                : colorize("❌ Could not copy — no clipboard tool found.", colors.red)
             );
-            const installAnswer = await rl.question(
-              `Install ${platform.cliName} now? (y/n): `
+            continue;
+          }
+
+          if (choice === "r") {
+            const instruction = await rl.question(
+              colorize("Add instructions for the AI (or press Enter to skip): ", colors.dim)
             );
-            if (installAnswer.trim().toLowerCase() === "y") {
-              ui.writeLine(`Installing ${platform.cliName}...`);
-              try {
-                platform.installCli();
+            if (instruction.trim()) currentAppend = instruction.trim();
+            ui.writeLine("🔁 Regenerating PR...");
+            regenerate = true;
+            break;
+          }
+
+          if (choice === "y" && platform) {
+            if (!platform.isCliInstalled()) {
+              ui.writeLine(
+                colorize(`⚠️  ${platform.cliName} CLI is not installed.`, colors.dim)
+              );
+              const installAnswer = await rl.question(
+                `Install ${platform.cliName} now? (y/n): `
+              );
+              if (installAnswer.trim().toLowerCase() === "y") {
+                ui.writeLine(`Installing ${platform.cliName}...`);
+                try {
+                  platform.installCli();
+                  ui.writeLine(
+                    colorize(`✅ ${platform.cliName} installed.`, colors.green)
+                  );
+                } catch (err) {
+                  ui.writeLine(colorize(`❌ Install failed: ${err.message}`, colors.red));
+                  return 0;
+                }
+              } else {
                 ui.writeLine(
-                  colorize(`✅ ${platform.cliName} installed.`, colors.green)
+                  `Install ${platform.cliName} manually and re-run to create the PR.`
                 );
-              } catch (err) {
-                ui.writeLine(colorize(`❌ Install failed: ${err.message}`, colors.red));
                 return 0;
               }
-            } else {
-              ui.writeLine(
-                `Install ${platform.cliName} manually and re-run to create the PR.`
-              );
-              return 0;
             }
+
+            ui.writeLine(colorize("Creating PR...", colors.dim));
+            const { ok, url } = platform.createPr({
+              title: pr.title,
+              description: pr.description,
+              baseBranch: git.stripRemotePrefix(prBase),
+            });
+            if (ok) {
+              ui.writeLine("");
+              ui.writeLine(colorize("✅ PR created successfully!", colors.green));
+              if (url) ui.writeLine(colorize(`🔗 ${url}`, colors.bold));
+            } else {
+              ui.writeLine(colorize("❌ PR creation failed.", colors.red));
+            }
+            return 0;
           }
 
-          ui.writeLine(colorize("Creating PR...", colors.dim));
-          const { ok, url } = platform.createPr({
-            title: pr.title,
-            description: pr.description,
-            baseBranch: git.stripRemotePrefix(prBase),
-          });
-          if (ok) {
-            ui.writeLine("");
-            ui.writeLine(colorize("✅ PR created successfully!", colors.green));
-            if (url) ui.writeLine(colorize(`🔗 ${url}`, colors.bold));
-          } else {
-            ui.writeLine(colorize("❌ PR creation failed.", colors.red));
-          }
-          return 0;
+          ui.writeLine(
+            platform
+              ? "Please enter y, c, n, or r."
+              : "Please enter c, n, or r."
+          );
         }
 
-        ui.writeLine(
-          platform
-            ? "Please enter y, n, or r."
-            : "Please enter n or r."
-        );
+        if (!regenerate) break;
       }
     }
 
