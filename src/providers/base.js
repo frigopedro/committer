@@ -17,8 +17,7 @@ export class BaseProvider {
       instructions?.trim() || "",
       appendText?.trim() || "",
       truncated ? "The diff is truncated. Only describe visible changes." : "",
-      "Diff:",
-      diff,
+      `<diff>\n${diff}\n</diff>`,
     ]
       .filter(Boolean)
       .join("\n\n");

@@ -6,6 +6,19 @@ export class OllamaProvider extends BaseProvider {
         return "ollama";
     }
 
+    get host() {
+        const raw = super.host || "http://localhost:11434";
+        try {
+            const url = new URL(raw);
+            if (url.protocol !== "http:" && url.protocol !== "https:") {
+                throw new Error(`Invalid Ollama host protocol: ${url.protocol}`);
+            }
+            return raw;
+        } catch {
+            throw new Error(`Invalid AI_COMMIT_OLLAMA_HOST value: "${raw}"`);
+        }
+    }
+
     get supportsStreaming() {
         return true;
     }
@@ -63,8 +76,7 @@ export class OllamaProvider extends BaseProvider {
       "",
       "Now output ONLY the commit message.",
       "",
-      "Diff:",
-      diff,
+      `<diff>\n${diff}\n</diff>`,
     ]
       .filter(Boolean)
       .join("\n");
@@ -126,7 +138,7 @@ export class OllamaProvider extends BaseProvider {
 
         if (!response.ok) {
             const text = await response.text();
-            throw new Error(`Ollama API error: ${response.status} ${text}`);
+            throw new Error(`Ollama API error: ${response.status} ${text.slice(0, 200)}`);
         }
 
         const data = await response.json();
@@ -155,7 +167,7 @@ export class OllamaProvider extends BaseProvider {
 
         if (!response.ok) {
             const text = await response.text();
-            throw new Error(`Ollama API error: ${response.status} ${text}`);
+            throw new Error(`Ollama API error: ${response.status} ${text.slice(0, 200)}`);
         }
 
         if (!response.body) {
@@ -203,7 +215,7 @@ export class OllamaProvider extends BaseProvider {
 
         if (!response.ok) {
             const text = await response.text();
-            throw new Error(`Ollama API error: ${response.status} ${text}`);
+            throw new Error(`Ollama API error: ${response.status} ${text.slice(0, 200)}`);
         }
 
         const data = await response.json();

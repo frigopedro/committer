@@ -39,8 +39,7 @@ export class ClaudeProvider extends BaseProvider {
       appendText?.trim() || "",
       truncated ? "The diff is truncated. Only describe visible changes." : "",
       "",
-      "Diff:",
-      diff,
+      `<diff>\n${diff}\n</diff>`,
     ]
       .filter(Boolean)
       .join("\n");
@@ -107,7 +106,7 @@ export class ClaudeProvider extends BaseProvider {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`Claude API error: ${response.status} ${text}`);
+      throw new Error(`Claude API error: ${response.status} ${text.slice(0, 200)}`);
     }
 
     const data = await response.json();
@@ -134,7 +133,7 @@ export class ClaudeProvider extends BaseProvider {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`Claude API error: ${response.status} ${text}`);
+      throw new Error(`Claude API error: ${response.status} ${text.slice(0, 200)}`);
     }
 
     const data = await response.json();
