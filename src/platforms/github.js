@@ -46,8 +46,9 @@ export class GithubPlatform {
     const result = spawnSync(
       "gh",
       ["pr", "create", "--title", title, "--body", description, "--base", baseBranch],
-      { stdio: "inherit" }
+      { stdio: ["inherit", "pipe", "inherit"] }
     );
-    return result.status === 0;
+    const url = result.stdout?.toString().trim().split("\n").filter(Boolean).pop() ?? null;
+    return { ok: result.status === 0, url };
   }
 }

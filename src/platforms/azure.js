@@ -72,9 +72,21 @@ export class AzurePlatform {
         "--description", description,
         "--target-branch", baseBranch,
         "--detect", "true",
+        "--output", "json",
       ],
-      { stdio: "inherit" }
+      { stdio: ["inherit", "pipe", "inherit"] }
     );
-    return result.status === 0;
+
+    let url = null;
+    if (result.status === 0 && result.stdout) {
+      try {
+        const pr = JSON.parse(result.stdout.toString());
+        const repoWebUrl = pr?.repository?.webUrl ?? "";
+        const prId = pr?.pullRequestId;
+        if (repoWebUrl && prId) url = `${repoWebUrl}/pullrequest/${prId}`;
+      } catch { /* leave url null */ }
+    }
+
+    return { ok: result.status === 0, url };
   }
 }

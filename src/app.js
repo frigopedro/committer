@@ -367,12 +367,18 @@ export async function runApp({
           }
 
           ui.writeLine(colorize("Creating PR...", colors.dim));
-          const ok = platform.createPr({
+          const { ok, url } = platform.createPr({
             title: pr.title,
             description: pr.description,
             baseBranch: git.stripRemotePrefix(prBase),
           });
-          if (!ok) ui.writeLine(colorize("❌ PR creation failed.", colors.red));
+          if (ok) {
+            ui.writeLine("");
+            ui.writeLine(colorize("✅ PR created successfully!", colors.green));
+            if (url) ui.writeLine(colorize(`🔗 ${url}`, colors.bold));
+          } else {
+            ui.writeLine(colorize("❌ PR creation failed.", colors.red));
+          }
           return 0;
         }
 
