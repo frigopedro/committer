@@ -16,55 +16,63 @@ export class OpenAIProvider extends BaseProvider {
 
   buildPrompt(diff, { truncated, appendText, customInstructions }) {
     const types = COMMIT_TYPES.join(", ");
-    const prompt = customInstructions
-      ? this.buildCustomPrompt(customInstructions, { diff, truncated })
-      : [
+    if (customInstructions) {
+      return this.buildCustomPrompt(customInstructions, { diff, truncated, appendText });
+    }
+    return [
       "Write a professional git commit message from this diff.",
       "Return only the commit message.",
-            "No preface, no commentary, no markdown.",
-            "",
-            "Format:",
-            "<type>(optional-scope)!: <description>",
-            "",
-            "<body paragraph>",
-            "",
-            `Allowed types: ${types}.`,
-            "Use conventional commits.",
-            "Use imperative mood.",
-            "Use lower-case description.",
-            "No trailing period in the subject.",
-            "Subject under 72 characters.",
-            "Body required, 2 to 4 sentences.",
-            "No footer.",
-            truncated ? "The diff is truncated. Only describe visible changes." : "",
-            "",
+      "No preface, no commentary, no markdown.",
+      "",
+      "Format:",
+      "<type>(optional-scope)!: <description>",
+      "",
+      "<body paragraph>",
+      "",
+      `Allowed types: ${types}.`,
+      "Use conventional commits.",
+      "Use imperative mood.",
+      "Use lower-case description.",
+      "No trailing period in the subject.",
+      "Subject under 72 characters.",
+      "Body required, 2 to 4 sentences.",
+      "No footer.",
+      appendText?.trim() || "",
+      truncated ? "The diff is truncated. Only describe visible changes." : "",
+      "",
       "Diff:",
       diff,
     ]
       .filter(Boolean)
       .join("\n");
-    return this.applyUserRequest(prompt, appendText);
   }
 
-  buildPullRequestPrompt({ commits, baseBranch, customInstructions }) {
+  buildPullRequestPrompt({ commits, baseBranch, customInstructions, appendText }) {
     const instructionBlock = customInstructions
-      ? `Project instructions:\n${customInstructions}\n\n`
+      ? `Project instructions:\n${customInstructions}`
       : "";
 
     return [
       "Write a pull request title and description.",
-      "Return only the PR title and description.",
-      "Format:",
-      "<title>",
+      "Return ONLY a valid JSON object. No extra text, no code fences, no commentary.",
       "",
-      "<markdown description>",
+      "The JSON must have exactly two keys:",
+      '  "title"       — short human-readable PR title in Title Case (e.g. "Add User Authentication"), no conventional commit prefix, under 72 chars.',
+      '  "description" — Markdown string with these three sections:',
+      "    ## Summary",
+      "    <1-2 sentences describing the overall purpose of this PR>",
       "",
-      "Rules:",
-      "- Title should be concise and descriptive.",
-      "- Description must be valid Markdown.",
-      "- Summarize the intent and key changes from the commits.",
-      "- Do not include code fences or extra commentary.",
+      "    ## Changes",
+      "    - <key change>",
+      "",
+      "    ## Impact",
+      "    <Breaking changes, performance effects, or behavioral differences. Write 'No breaking changes.' if none.>",
+      "",
+      "Example output (do not copy literally):",
+      '{"title":"Add User Authentication","description":"## Summary\\nAdd JWT-based login and token refresh.\\n\\n## Changes\\n- Add POST /auth/login endpoint\\n- Add JWT middleware\\n\\n## Impact\\nNo breaking changes."}',
+      "",
       instructionBlock,
+      appendText?.trim() || "",
       `Base branch: ${baseBranch}`,
       "Commits:",
       commits,
@@ -88,7 +96,7 @@ export class OpenAIProvider extends BaseProvider {
             body: JSON.stringify({
                 model: this.model,
                 temperature: 0.2,
-                max_tokens: 256,
+                max_tokens: 512,
                 messages: [
                     { role: "system", content: system },
                     { role: "user", content: user },
@@ -120,7 +128,7 @@ export class OpenAIProvider extends BaseProvider {
             body: JSON.stringify({
                 model: this.model,
                 temperature: 0.2,
-                max_tokens: 256,
+                max_tokens: 512,
                 stream: true,
                 messages: [
                     { role: "system", content: system },

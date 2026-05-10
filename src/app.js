@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import {
   DEFAULT_CLAUDE_MODEL,
   DEFAULT_MAX_DIFF_CHARS,
@@ -6,9 +7,49 @@ import {
   DEFAULT_PROVIDER,
   EXIT_USER_ABORT,
 } from "./constants.js";
+import { detectPlatform } from "./platforms/index.js";
 
 const PROVIDERS = ["claude", "ollama", "openai"];
 const SEPARATOR = "-".repeat(64);
+
+function renderPr(pr, colorize, colors) {
+  const lines = [`${colorize(pr.title, colors.bold)}`, ""];
+  for (const line of pr.description.split("\n")) {
+    if (line.startsWith("## ")) {
+      lines.push(colorize(line.slice(3), colors.bold));
+    } else if (line.startsWith("- ")) {
+      lines.push("• " + line.slice(2));
+    } else {
+      lines.push(line);
+    }
+  }
+  return lines.join("\n");
+}
+
+function copyToClipboard(text) {
+  const { platform } = process;
+  const input = Buffer.from(text);
+
+  if (platform === "darwin") {
+    return spawnSync("pbcopy", [], { input }).status === 0;
+  }
+
+  if (platform === "win32") {
+    return spawnSync("clip", [], { input }).status === 0;
+  }
+
+  // Linux — try common clipboard tools in order
+  for (const [cmd, args] of [
+    ["wl-copy", []],
+    ["xclip", ["-selection", "clipboard"]],
+    ["xsel", ["--clipboard", "--input"]],
+  ]) {
+    const result = spawnSync(cmd, args, { input, stdio: ["pipe", "ignore", "ignore"] });
+    if (result.status === 0) return true;
+  }
+
+  return false;
+}
 
 function normalizeProvider(provider) {
   if (provider === "chatgpt") return "openai";
@@ -240,53 +281,156 @@ export async function runApp({
         return 0;
       }
 
-      const stop = createSpinner ? createSpinner("Loading PR content") : () => {};
-      let spinnerStopped = false;
-      let headerPrinted = false;
-      let streamed = false;
+      const remoteUrl = git.getRemoteUrl();
+      const platform = detectPlatform(remoteUrl);
+      const MAX_PR_RETRIES = 3;
+      let pr = null;
+      let currentAppend = "";
 
-      const stopSpinner = () => {
-        if (spinnerStopped) return;
-        spinnerStopped = true;
-        stop();
-      };
+      while (true) {
+        for (let attempt = 1; attempt <= MAX_PR_RETRIES; attempt++) {
+          const spinnerMessages =
+            attempt === 1
+              ? [
+                  "Analyzing commits...",
+                  "Crafting title...",
+                  "Writing description...",
+                  "Almost there...",
+                ]
+              : [
+                  `Retrying... (${attempt}/${MAX_PR_RETRIES})`,
+                  "Rethinking structure...",
+                  "Almost there...",
+                ];
 
-      const startOutput = () => {
-        if (headerPrinted) return;
-        stopSpinner();
+          const stop = createSpinner ? createSpinner(spinnerMessages) : () => {};
+
+          try {
+            pr = await ai.generatePullRequest({
+              provider,
+              model,
+              host: ollamaHost,
+              commits,
+              baseBranch: prBase,
+              customInstructions,
+              appendText: currentAppend,
+            });
+            stop();
+            break;
+          } catch {
+            stop();
+            if (attempt < MAX_PR_RETRIES) {
+              ui.writeLine(
+                colorize(
+                  "⚠️  Response wasn't structured correctly, retrying...",
+                  colors.dim
+                )
+              );
+            } else {
+              ui.writeLine(
+                colorize(
+                  "❌ Failed to generate a valid PR after multiple attempts.",
+                  colors.red
+                )
+              );
+              return 0;
+            }
+          }
+        }
+
         ui.writeLine("");
-        ui.writeLine(colorize("✨ Suggested PR title and description:", colors.bold));
+        ui.writeLine(colorize("✨ Suggested PR:", colors.bold));
         ui.writeLine(colorize(SEPARATOR, colors.dim));
-        headerPrinted = true;
-      };
+        ui.writeLine(renderPr(pr, colorize, colors));
+        ui.writeLine(colorize(SEPARATOR, colors.dim));
 
-      let prContent = await ai.generatePullRequest({
-        provider,
-        model,
-        host: ollamaHost,
-        commits,
-        baseBranch: prBase,
-        customInstructions,
-        stream: true,
-        onToken: (chunk) => {
-          streamed = true;
-          startOutput();
-          ui.write(chunk);
-        },
-      });
+        const promptLine = platform
+          ? `Use (y) to create PR on ${platform.name}, (c) to copy, (n) to abort, (r) to regenerate: `
+          : "Use (c) to copy, (n) to abort, (r) to regenerate: ";
 
-      stopSpinner();
-      if (!headerPrinted) {
-        startOutput();
+        let regenerate = false;
+        while (true) {
+          const answer = await rl.question(promptLine);
+          const choice = answer.trim().toLowerCase();
+
+          if (choice === "n") {
+            ui.writeLine(colorize("🛑 PR aborted.", colors.red));
+            return EXIT_USER_ABORT;
+          }
+
+          if (choice === "c") {
+            const content = `${pr.title}\n\n${pr.description}`;
+            const copied = copyToClipboard(content);
+            ui.writeLine(
+              copied
+                ? colorize("📋 PR message copied to clipboard.", colors.green)
+                : colorize("❌ Could not copy — no clipboard tool found.", colors.red)
+            );
+            continue;
+          }
+
+          if (choice === "r") {
+            const instruction = await rl.question(
+              colorize("Add instructions for the AI (or press Enter to skip): ", colors.dim)
+            );
+            if (instruction.trim()) currentAppend = instruction.trim();
+            ui.writeLine("🔁 Regenerating PR...");
+            regenerate = true;
+            break;
+          }
+
+          if (choice === "y" && platform) {
+            if (!platform.isCliInstalled()) {
+              ui.writeLine(
+                colorize(`⚠️  ${platform.cliName} CLI is not installed.`, colors.dim)
+              );
+              const installAnswer = await rl.question(
+                `Install ${platform.cliName} now? (y/n): `
+              );
+              if (installAnswer.trim().toLowerCase() === "y") {
+                ui.writeLine(`Installing ${platform.cliName}...`);
+                try {
+                  platform.installCli();
+                  ui.writeLine(
+                    colorize(`✅ ${platform.cliName} installed.`, colors.green)
+                  );
+                } catch (err) {
+                  ui.writeLine(colorize(`❌ Install failed: ${err.message}`, colors.red));
+                  return 0;
+                }
+              } else {
+                ui.writeLine(
+                  `Install ${platform.cliName} manually and re-run to create the PR.`
+                );
+                return 0;
+              }
+            }
+
+            ui.writeLine(colorize("Creating PR...", colors.dim));
+            const { ok, url } = platform.createPr({
+              title: pr.title,
+              description: pr.description,
+              baseBranch: git.stripRemotePrefix(prBase),
+            });
+            if (ok) {
+              ui.writeLine("");
+              ui.writeLine(colorize("✅ PR created successfully!", colors.green));
+              if (url) ui.writeLine(colorize(`🔗 ${url}`, colors.bold));
+            } else {
+              ui.writeLine(colorize("❌ PR creation failed.", colors.red));
+            }
+            return 0;
+          }
+
+          ui.writeLine(
+            platform
+              ? "Please enter y, c, n, or r."
+              : "Please enter c, n, or r."
+          );
+        }
+
+        if (!regenerate) break;
       }
-
-      if (!streamed && prContent) {
-        ui.writeLine(prContent);
-      }
-
-      ui.writeLine("");
-      ui.writeLine(colorize(SEPARATOR, colors.dim));
-      return 0;
     }
 
     if (shouldAddAll) {
@@ -306,6 +450,7 @@ export async function runApp({
 
     const { diff: trimmedDiff, truncated } = git.truncateDiff(diff, maxDiffChars);
     let message = "";
+    let currentAppend = promptAppend;
 
     while (true) {
       const stop = createSpinner ? createSpinner("Loading commit message") : () => {};
@@ -334,7 +479,7 @@ export async function runApp({
         diff: trimmedDiff,
         truncated,
         host: ollamaHost,
-        promptAppend,
+        promptAppend: currentAppend,
         customInstructions,
         stream: true,
         onToken: (chunk) => {
@@ -378,6 +523,12 @@ export async function runApp({
       }
 
       if (choice === "r") {
+        const instruction = await rl.question(
+          colorize("Add instructions for the AI (or press Enter to skip): ", colors.dim)
+        );
+        if (instruction.trim()) {
+          currentAppend = instruction.trim();
+        }
         ui.writeLine("🔁 Regenerating commit message...");
         continue;
       }

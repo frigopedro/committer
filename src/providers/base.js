@@ -12,34 +12,16 @@ export class BaseProvider {
     return false;
   }
 
-  applyUserRequest(prompt, appendText, anchor = "Diff:") {
-    const extra = (appendText ?? "").trim();
-    if (!extra) return prompt;
-
-    const insertBlock = [
-      "User request:",
-      extra,
-      "Ensure the commit message reflects this request.",
-      "",
-    ].join("\n");
-
-    const index = prompt.lastIndexOf(anchor);
-    if (index === -1) {
-      return `${prompt}\n\n${insertBlock}`;
-    }
-
-    return `${prompt.slice(0, index)}${insertBlock}${prompt.slice(index)}`;
-  }
-
-  buildCustomPrompt(instructions, { diff, truncated }) {
-    const parts = [
+  buildCustomPrompt(instructions, { diff, truncated, appendText }) {
+    return [
       instructions?.trim() || "",
+      appendText?.trim() || "",
       truncated ? "The diff is truncated. Only describe visible changes." : "",
       "Diff:",
       diff,
-    ].filter(Boolean);
-
-    return parts.join("\n\n");
+    ]
+      .filter(Boolean)
+      .join("\n\n");
   }
 
   buildSystemPrompt() {

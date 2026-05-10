@@ -15,9 +15,10 @@ export class ClaudeProvider extends BaseProvider {
 
   buildPrompt(diff, { truncated, appendText, customInstructions }) {
     const types = COMMIT_TYPES.join(", ");
-    const prompt = customInstructions
-      ? this.buildCustomPrompt(customInstructions, { diff, truncated })
-      : [
+    if (customInstructions) {
+      return this.buildCustomPrompt(customInstructions, { diff, truncated, appendText });
+    }
+    return [
       "You are writing a professional git commit message for a maintainer.",
       "Return only the commit message.",
       "",
@@ -35,6 +36,7 @@ export class ClaudeProvider extends BaseProvider {
       "Body required, 2 to 4 sentences.",
       "No footer.",
       "Focus on the main intent of the change.",
+      appendText?.trim() || "",
       truncated ? "The diff is truncated. Only describe visible changes." : "",
       "",
       "Diff:",
@@ -42,28 +44,34 @@ export class ClaudeProvider extends BaseProvider {
     ]
       .filter(Boolean)
       .join("\n");
-    return this.applyUserRequest(prompt, appendText);
   }
 
-  buildPullRequestPrompt({ commits, baseBranch, customInstructions }) {
+  buildPullRequestPrompt({ commits, baseBranch, customInstructions, appendText }) {
     const instructionBlock = customInstructions
-      ? `Project instructions:\n${customInstructions}\n\n`
+      ? `Project instructions:\n${customInstructions}`
       : "";
 
     return [
       "You are preparing a pull request.",
-      "Return only the PR title and description.",
-      "Format:",
-      "<title>",
+      "Return ONLY a valid JSON object. No extra text, no code fences, no commentary.",
       "",
-      "<markdown description>",
+      "The JSON must have exactly two keys:",
+      '  "title"       — short human-readable PR title in Title Case (e.g. "Add User Authentication"), no conventional commit prefix, under 72 chars.',
+      '  "description" — Markdown string with these three sections:',
+      "    ## Summary",
+      "    <1-2 sentences describing the overall purpose of this PR>",
       "",
-      "Rules:",
-      "- Title should be concise and descriptive.",
-      "- Description must be valid Markdown.",
-      "- Summarize the intent and key changes from the commits.",
-      "- Do not include code fences or extra commentary.",
+      "    ## Changes",
+      "    - <key change>",
+      "",
+      "    ## Impact",
+      "    <Breaking changes, performance effects, or behavioral differences. Write 'No breaking changes.' if none.>",
+      "",
+      "Example output (do not copy literally):",
+      '{"title":"Add User Authentication","description":"## Summary\\nAdd JWT-based login and token refresh.\\n\\n## Changes\\n- Add POST /auth/login endpoint\\n- Add JWT middleware\\n\\n## Impact\\nNo breaking changes."}',
+      "",
       instructionBlock,
+      appendText?.trim() || "",
       `Base branch: ${baseBranch}`,
       "Commits:",
       commits,
@@ -90,7 +98,7 @@ export class ClaudeProvider extends BaseProvider {
       },
       body: JSON.stringify({
         model: this.model,
-        max_tokens: 256,
+        max_tokens: 512,
         temperature: 0.2,
         system,
         messages: [{ role: "user", content: user }],

@@ -22,70 +22,80 @@ export class OllamaProvider extends BaseProvider {
 
   buildPrompt(diff, { truncated, appendText, customInstructions }) {
     const types = COMMIT_TYPES.join(", ");
-    const prompt = customInstructions
-      ? this.buildCustomPrompt(customInstructions, { diff, truncated })
-      : [
+    if (customInstructions) {
+      return this.buildCustomPrompt(customInstructions, { diff, truncated, appendText });
+    }
+    return [
       "Write a git commit message.",
-            "",
-            "ONLY output the commit message.",
-            "NO explanations.",
-            "NO summaries.",
-            "NO bullet points.",
-            "NO numbered lists.",
-            "NO markdown.",
-            "NO extra text.",
-            "",
-            "Format EXACTLY:",
-            "<type>(optional-scope)!: <description>",
-            "",
-            "<body paragraph>",
-            "",
-            `Allowed types: ${types}.`,
-            "Use conventional commits.",
-            "Subject: imperative, lower-case, no period, max 72 chars.",
-            "Body: 2-3 sentences.",
-            "No footer.",
-            "",
-            truncated ? "Diff is truncated. Do not guess missing parts." : "",
-            "",
-            "BAD OUTPUT:",
-            "The provided code appears to be...",
-            "Here are some observations:",
-            "1. Updated function...",
-            "",
-            "GOOD OUTPUT:",
-            "feat(api): add structured json response handling",
-            "",
-            "Update API providers to support structured JSON responses and improve",
-            "response parsing. Adjust request configuration to ensure consistent",
-            "output formatting across providers.",
-            "",
-            "Now output ONLY the commit message.",
-            "",
+      "",
+      "ONLY output the commit message.",
+      "NO explanations.",
+      "NO summaries.",
+      "NO bullet points.",
+      "NO numbered lists.",
+      "NO markdown.",
+      "NO extra text.",
+      "",
+      "Format EXACTLY:",
+      "<type>(optional-scope)!: <description>",
+      "",
+      "<body paragraph>",
+      "",
+      `Allowed types: ${types}.`,
+      "Use conventional commits.",
+      "Subject: imperative, lower-case, no period, max 72 chars.",
+      "Body: 2-3 sentences.",
+      "No footer.",
+      appendText?.trim() || "",
+      truncated ? "Diff is truncated. Do not guess missing parts." : "",
+      "",
+      "BAD OUTPUT:",
+      "The provided code appears to be...",
+      "Here are some observations:",
+      "1. Updated function...",
+      "",
+      "GOOD OUTPUT:",
+      "feat(api): add structured json response handling",
+      "",
+      "Update API providers to support structured JSON responses and improve",
+      "response parsing. Adjust request configuration to ensure consistent",
+      "output formatting across providers.",
+      "",
+      "Now output ONLY the commit message.",
+      "",
       "Diff:",
       diff,
     ]
       .filter(Boolean)
       .join("\n");
-    return this.applyUserRequest(prompt, appendText);
   }
 
-  buildPullRequestPrompt({ commits, baseBranch, customInstructions }) {
+  buildPullRequestPrompt({ commits, baseBranch, customInstructions, appendText }) {
     const instructionBlock = customInstructions
-      ? `Project instructions:\n${customInstructions}\n\n`
+      ? `Project instructions:\n${customInstructions}`
       : "";
 
     return [
       "Write a pull request title and description.",
-      "ONLY output the title and description.",
-      "NO extra text.",
-      "NO markdown fences.",
-      "Format EXACTLY:",
-      "<title>",
+      "Output ONLY a valid JSON object. NO extra text. NO markdown fences. NO commentary.",
       "",
-      "<markdown description>",
+      "The JSON must have exactly two keys:",
+      '  "title"       — short human-readable PR title in Title Case (e.g. "Add User Authentication"), no conventional commit prefix, under 72 chars.',
+      '  "description" — Markdown string with these three sections:',
+      "    ## Summary",
+      "    <1-2 sentences describing the overall purpose of this PR>",
+      "",
+      "    ## Changes",
+      "    - <key change>",
+      "",
+      "    ## Impact",
+      "    <Breaking changes, performance effects, or behavioral differences. Write 'No breaking changes.' if none.>",
+      "",
+      "Example output (do not copy literally):",
+      '{"title":"Add User Authentication","description":"## Summary\\nAdd JWT-based login and token refresh.\\n\\n## Changes\\n- Add POST /auth/login endpoint\\n- Add JWT middleware\\n\\n## Impact\\nNo breaking changes."}',
       "",
       instructionBlock,
+      appendText?.trim() || "",
       `Base branch: ${baseBranch}`,
       "Commits:",
       commits,
@@ -105,7 +115,7 @@ export class OllamaProvider extends BaseProvider {
                 stream: false,
                 options: {
                     temperature: 0.1,
-                    num_predict: 256,
+                    num_predict: 512,
                 },
                 messages: [
                     { role: "system", content: system },
@@ -134,7 +144,7 @@ export class OllamaProvider extends BaseProvider {
                 stream: true,
                 options: {
                     temperature: 0.1,
-                    num_predict: 256,
+                    num_predict: 512,
                 },
                 messages: [
                     { role: "system", content: system },

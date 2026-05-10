@@ -32,6 +32,26 @@ export class GitClient {
     return this.runGit("rev-parse --abbrev-ref HEAD");
   }
 
+  getRemoteUrl(remote = "origin") {
+    try {
+      return this.runGit(`remote get-url ${remote}`);
+    } catch {
+      return "";
+    }
+  }
+
+  stripRemotePrefix(branch) {
+    try {
+      const remotes = this.runGit("remote").split("\n").filter(Boolean);
+      for (const remote of remotes) {
+        if (branch.startsWith(`${remote}/`)) {
+          return branch.slice(remote.length + 1);
+        }
+      }
+    } catch { /* no remotes configured */ }
+    return branch;
+  }
+
   getDiff(mode) {
     const staged = this.runGit("diff --staged");
     const unstaged = this.runGit("diff");
@@ -51,6 +71,17 @@ export class GitClient {
     if (!base) {
       throw new Error("Base branch is required to list commits.");
     }
+
+    // If base looks like remote/branch, fetch it so the ref exists locally
+    const slashIdx = base.indexOf("/");
+    if (slashIdx !== -1) {
+      const remote = base.slice(0, slashIdx);
+      const branch = base.slice(slashIdx + 1);
+      try {
+        this.runGit(`fetch ${remote} ${branch}`);
+      } catch { /* ignore — log will fail with a clear message if ref still missing */ }
+    }
+
     return this.runGit(`log ${base}..${head} --pretty=format:%h%x20%s`);
   }
 
