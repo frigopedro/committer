@@ -1,4 +1,4 @@
-import { execSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { promises as fs } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,35 +6,39 @@ import { randomUUID } from "node:crypto";
 
 export class GitClient {
   runGit(args) {
-    return execSync(`git ${args}`, {
+    const result = spawnSync("git", args, {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
-    }).trimEnd();
+    });
+    if (result.status !== 0) {
+      throw new Error(result.stderr?.trim() || `git ${args[0]} failed`);
+    }
+    return result.stdout.trimEnd();
   }
 
   stageAll() {
-    this.runGit("add .");
+    this.runGit(["add", "."]);
   }
 
   ensureRepo() {
     try {
-      this.runGit("rev-parse --show-toplevel");
-    } catch (error) {
+      this.runGit(["rev-parse", "--show-toplevel"]);
+    } catch {
       throw new Error("Not inside a git repository.");
     }
   }
 
   getRepoRoot() {
-    return this.runGit("rev-parse --show-toplevel");
+    return this.runGit(["rev-parse", "--show-toplevel"]);
   }
 
   getCurrentBranch() {
-    return this.runGit("rev-parse --abbrev-ref HEAD");
+    return this.runGit(["rev-parse", "--abbrev-ref", "HEAD"]);
   }
 
   getRemoteUrl(remote = "origin") {
     try {
-      return this.runGit(`remote get-url ${remote}`);
+      return this.runGit(["remote", "get-url", remote]);
     } catch {
       return "";
     }
@@ -42,7 +46,7 @@ export class GitClient {
 
   stripRemotePrefix(branch) {
     try {
-      const remotes = this.runGit("remote").split("\n").filter(Boolean);
+      const remotes = this.runGit(["remote"]).split("\n").filter(Boolean);
       for (const remote of remotes) {
         if (branch.startsWith(`${remote}/`)) {
           return branch.slice(remote.length + 1);
@@ -53,8 +57,8 @@ export class GitClient {
   }
 
   getDiff(mode) {
-    const staged = this.runGit("diff --staged");
-    const unstaged = this.runGit("diff");
+    const staged = this.runGit(["diff", "--staged"]);
+    const unstaged = this.runGit(["diff"]);
 
     if (mode === "staged") return staged;
     if (mode === "all") {
@@ -78,11 +82,11 @@ export class GitClient {
       const remote = base.slice(0, slashIdx);
       const branch = base.slice(slashIdx + 1);
       try {
-        this.runGit(`fetch ${remote} ${branch}`);
+        this.runGit(["fetch", remote, branch]);
       } catch { /* ignore — log will fail with a clear message if ref still missing */ }
     }
 
-    return this.runGit(`log ${base}..${head} --pretty=format:%h%x20%s`);
+    return this.runGit(["log", `${base}..${head}`, "--pretty=format:%h%x20%s"]);
   }
 
   truncateDiff(diff, maxChars) {

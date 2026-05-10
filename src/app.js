@@ -435,11 +435,7 @@ export async function runApp({
 
     if (shouldAddAll) {
       ui.writeLine(colorize("📦 Staging all changes (git add .)...", colors.dim));
-      if (typeof git.stageAll === "function") {
-        git.stageAll();
-      } else {
-        git.runGit("add .");
-      }
+      git.stageAll();
     }
 
     const diff = git.getDiff(diffMode);

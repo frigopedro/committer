@@ -40,8 +40,7 @@ export class OpenAIProvider extends BaseProvider {
       appendText?.trim() || "",
       truncated ? "The diff is truncated. Only describe visible changes." : "",
       "",
-      "Diff:",
-      diff,
+      `<diff>\n${diff}\n</diff>`,
     ]
       .filter(Boolean)
       .join("\n");
@@ -106,7 +105,7 @@ export class OpenAIProvider extends BaseProvider {
 
         if (!response.ok) {
             const text = await response.text();
-            throw new Error(`OpenAI API error: ${response.status} ${text}`);
+            throw new Error(`OpenAI API error: ${response.status} ${text.slice(0, 200)}`);
         }
 
         const data = await response.json();
@@ -139,7 +138,7 @@ export class OpenAIProvider extends BaseProvider {
 
         if (!response.ok) {
             const text = await response.text();
-            throw new Error(`OpenAI API error: ${response.status} ${text}`);
+            throw new Error(`OpenAI API error: ${response.status} ${text.slice(0, 200)}`);
         }
 
         if (!response.body) {
