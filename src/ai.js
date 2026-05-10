@@ -1,4 +1,4 @@
-import { cleanCommitMessage } from "./text.js";
+import { cleanCommitMessage, extractPrJson } from "./text.js";
 import { createProvider } from "./providers/registry.js";
 
 export async function generateCommitMessage({
@@ -38,8 +38,6 @@ export async function generatePullRequest({
     commits,
     baseBranch,
     customInstructions,
-    stream = false,
-    onToken,
 }) {
     const providerClient = createProvider(provider, { model, host });
     const system = providerClient.buildSystemPrompt();
@@ -49,13 +47,6 @@ export async function generatePullRequest({
         customInstructions,
     });
 
-    let raw = "";
-
-    if (stream && typeof onToken === "function" && providerClient.supportsStreaming) {
-        raw = await providerClient.stream({ system, user, onToken });
-        return cleanCommitMessage(raw);
-    }
-
-    raw = await providerClient.generate({ system, user });
-    return cleanCommitMessage(raw);
+    const raw = await providerClient.generate({ system, user });
+    return extractPrJson(raw);
 }

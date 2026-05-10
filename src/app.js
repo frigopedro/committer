@@ -240,52 +240,23 @@ export async function runApp({
         return 0;
       }
 
-      const stop = createSpinner ? createSpinner("Loading PR content") : () => {};
-      let spinnerStopped = false;
-      let headerPrinted = false;
-      let streamed = false;
+      const stop = createSpinner ? createSpinner("Generating PR...") : () => {};
 
-      const stopSpinner = () => {
-        if (spinnerStopped) return;
-        spinnerStopped = true;
+      let pr;
+      try {
+        pr = await ai.generatePullRequest({
+          provider,
+          model,
+          host: ollamaHost,
+          commits,
+          baseBranch: prBase,
+          customInstructions,
+        });
+      } finally {
         stop();
-      };
-
-      const startOutput = () => {
-        if (headerPrinted) return;
-        stopSpinner();
-        ui.writeLine("");
-        ui.writeLine(colorize("✨ Suggested PR title and description:", colors.bold));
-        ui.writeLine(colorize(SEPARATOR, colors.dim));
-        headerPrinted = true;
-      };
-
-      let prContent = await ai.generatePullRequest({
-        provider,
-        model,
-        host: ollamaHost,
-        commits,
-        baseBranch: prBase,
-        customInstructions,
-        stream: true,
-        onToken: (chunk) => {
-          streamed = true;
-          startOutput();
-          ui.write(chunk);
-        },
-      });
-
-      stopSpinner();
-      if (!headerPrinted) {
-        startOutput();
       }
 
-      if (!streamed && prContent) {
-        ui.writeLine(prContent);
-      }
-
-      ui.writeLine("");
-      ui.writeLine(colorize(SEPARATOR, colors.dim));
+      ui.writeLine(JSON.stringify(pr, null, 2));
       return 0;
     }
 

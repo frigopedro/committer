@@ -77,13 +77,22 @@ export class OllamaProvider extends BaseProvider {
 
     return [
       "Write a pull request title and description.",
-      "ONLY output the title and description.",
-      "NO extra text.",
-      "NO markdown fences.",
-      "Format EXACTLY:",
-      "<title>",
+      "Output ONLY a valid JSON object. NO extra text. NO markdown fences. NO commentary.",
       "",
-      "<markdown description>",
+      "The JSON must have exactly two keys:",
+      '  "title"       — concise imperative title, lower-case, no trailing period, under 72 chars.',
+      '  "description" — Markdown string with these three sections:',
+      "    ## Summary",
+      "    <1-2 sentences describing the overall purpose of this PR>",
+      "",
+      "    ## Changes",
+      "    - <key change>",
+      "",
+      "    ## Impact",
+      "    <Breaking changes, performance effects, or behavioral differences. Write 'No breaking changes.' if none.>",
+      "",
+      "Example output (do not copy literally):",
+      '{"title":"feat: add user authentication","description":"## Summary\\nAdd JWT-based login and token refresh.\\n\\n## Changes\\n- Add POST /auth/login endpoint\\n- Add JWT middleware\\n\\n## Impact\\nNo breaking changes."}',
       "",
       instructionBlock,
       `Base branch: ${baseBranch}`,
@@ -105,7 +114,7 @@ export class OllamaProvider extends BaseProvider {
                 stream: false,
                 options: {
                     temperature: 0.1,
-                    num_predict: 256,
+                    num_predict: 512,
                 },
                 messages: [
                     { role: "system", content: system },
@@ -134,7 +143,7 @@ export class OllamaProvider extends BaseProvider {
                 stream: true,
                 options: {
                     temperature: 0.1,
-                    num_predict: 256,
+                    num_predict: 512,
                 },
                 messages: [
                     { role: "system", content: system },
