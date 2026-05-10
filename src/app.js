@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import {
   DEFAULT_CLAUDE_MODEL,
   DEFAULT_MAX_DIFF_CHARS,
@@ -23,6 +24,31 @@ function renderPr(pr, colorize, colors) {
     }
   }
   return lines.join("\n");
+}
+
+function copyToClipboard(text) {
+  const { platform } = process;
+  const input = Buffer.from(text);
+
+  if (platform === "darwin") {
+    return spawnSync("pbcopy", [], { input }).status === 0;
+  }
+
+  if (platform === "win32") {
+    return spawnSync("clip", [], { input }).status === 0;
+  }
+
+  // Linux — try common clipboard tools in order
+  for (const [cmd, args] of [
+    ["wl-copy", []],
+    ["xclip", ["-selection", "clipboard"]],
+    ["xsel", ["--clipboard", "--input"]],
+  ]) {
+    const result = spawnSync(cmd, args, { input, stdio: ["pipe", "ignore", "ignore"] });
+    if (result.status === 0) return true;
+  }
+
+  return false;
 }
 
 function normalizeProvider(provider) {
@@ -319,8 +345,8 @@ export async function runApp({
         ui.writeLine(colorize(SEPARATOR, colors.dim));
 
         const promptLine = platform
-          ? `Use (y) to create PR on ${platform.name}, (n) to abort, (r) to regenerate: `
-          : "Use (n) to abort, (r) to regenerate: ";
+          ? `Use (y) to create PR on ${platform.name}, (c) to copy, (n) to abort, (r) to regenerate: `
+          : "Use (c) to copy, (n) to abort, (r) to regenerate: ";
 
         const answer = await rl.question(promptLine);
         const choice = answer.trim().toLowerCase();
@@ -328,6 +354,17 @@ export async function runApp({
         if (choice === "n") {
           ui.writeLine(colorize("🛑 PR aborted.", colors.red));
           return EXIT_USER_ABORT;
+        }
+
+        if (choice === "c") {
+          const content = `${pr.title}\n\n${pr.description}`;
+          const copied = copyToClipboard(content);
+          ui.writeLine(
+            copied
+              ? colorize("📋 PR message copied to clipboard.", colors.green)
+              : colorize("❌ Could not copy — no clipboard tool found.", colors.red)
+          );
+          continue;
         }
 
         if (choice === "r") {
