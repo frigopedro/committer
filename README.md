@@ -4,7 +4,7 @@ AI-powered CLI that generates [conventional commit messages](https://www.convent
 
 ## Demo
 
-[![Watch the demo](https://img.youtube.com/vi/McUAdykB4Jo/maxresdefault.jpg)](https://www.youtube.com/watch?v=McUAdykB4Jo)
+[![Watch the demo](https://img.youtube.com/vi/2jtUHqYycro/maxresdefault.jpg)](https://www.youtube.com/watch?v=2jtUHqYycro)
 
 ## Features
 
