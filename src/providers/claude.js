@@ -79,21 +79,31 @@ export class ClaudeProvider extends BaseProvider {
       .join("\n");
   }
 
-  async generate({ system, user }) {
-    const apiKey =
-      process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || "";
-    if (!apiKey) {
-      throw new Error(
-        "Missing ANTHROPIC_API_KEY or CLAUDE_API_KEY for Claude provider."
-      );
-    }
+  _getAuthHeaders() {
+    const oauthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    const apiKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
 
+    if (oauthToken) {
+      return {
+        "authorization": `Bearer ${oauthToken}`,
+        "anthropic-beta": "oauth-2025-04-20",
+      };
+    }
+    if (apiKey) {
+      return { "x-api-key": apiKey };
+    }
+    throw new Error(
+      "Missing credentials. Set CLAUDE_CODE_OAUTH_TOKEN, ANTHROPIC_API_KEY, or CLAUDE_API_KEY."
+    );
+  }
+
+  async generate({ system, user }) {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
+        ...this._getAuthHeaders(),
       },
       body: JSON.stringify({
         model: this.model,
@@ -114,20 +124,21 @@ export class ClaudeProvider extends BaseProvider {
   }
 
   static async listModels() {
-    const apiKey =
-      process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || "";
-    if (!apiKey) {
-      throw new Error(
-        "Missing ANTHROPIC_API_KEY or CLAUDE_API_KEY for Claude provider."
-      );
-    }
+    const oauthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    const apiKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+
+    const authHeaders = oauthToken
+      ? { "authorization": `Bearer ${oauthToken}`, "anthropic-beta": "oauth-2025-04-20" }
+      : apiKey
+        ? { "x-api-key": apiKey }
+        : (() => { throw new Error("Missing credentials. Set CLAUDE_CODE_OAUTH_TOKEN, ANTHROPIC_API_KEY, or CLAUDE_API_KEY."); })();
 
     const response = await fetch("https://api.anthropic.com/v1/models", {
       method: "GET",
       headers: {
         "content-type": "application/json",
-        "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
+        ...authHeaders,
       },
     });
 
