@@ -96,12 +96,29 @@ If the remote is GitHub or Azure DevOps, choosing `y` uses the platform CLI (`gh
 
 ### Claude (default)
 
-Get an API key at [console.anthropic.com](https://console.anthropic.com).
+Two ways to authenticate:
+
+**Option 1 — Claude Code OAuth token (no API key needed)**
+
+If you have [Claude Code](https://claude.ai/code) installed, generate a token from within Claude Code and export it:
+
+```bash
+export CLAUDE_CODE_OAUTH_TOKEN=<your-token>
+committer
+```
+
+> OAuth tokens are short-lived. If you see auth errors, generate a new token from Claude Code.
+
+**Option 2 — Anthropic API key**
+
+Get a key at [console.anthropic.com](https://console.anthropic.com).
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 committer
 ```
+
+`CLAUDE_CODE_OAUTH_TOKEN` takes precedence over `ANTHROPIC_API_KEY` if both are set.
 
 Default model: `claude-3-5-haiku-20241022`
 
@@ -184,6 +201,7 @@ committer [options] [.]
 | `AI_COMMIT_PROVIDER` | Provider override (`claude`, `openai`, `ollama`) |
 | `AI_COMMIT_MODEL` | Model override |
 | `AI_COMMIT_MAX_DIFF_CHARS` | Diff length override |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Claude Code OAuth token (takes precedence over API key) |
 | `ANTHROPIC_API_KEY` or `CLAUDE_API_KEY` | Claude API key |
 | `OPENAI_API_KEY` | OpenAI API key |
 | `AI_COMMIT_OLLAMA_HOST` | Ollama base URL (default: `http://localhost:11434`) |
