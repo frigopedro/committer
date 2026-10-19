@@ -6,10 +6,26 @@
 
 ## Why it's low cost
 
-- **Small models by default.** It uses cheap, fast models (`claude-3-5-haiku`, `gpt-4o-mini`) by default. Writing a commit message doesn't need a frontier model.
+**The workflow is deterministic. The LLM only writes the text.**
+
+Every step is fixed code: reading the diff, staging, committing, naming and creating the branch, pushing, and opening the PR. The model is called for one thing only: generating the commit message, the branch name, or the PR title and description. It never decides what to run next, never calls tools, and never loops.
+
+Compare that with handing the whole git workflow to an AI agent through a skill or prompt:
+
+| | Agent does the git workflow itself | committer |
+|---|---|---|
+| Who runs the steps | The LLM, one tool call at a time (`git status`, `git diff`, `git add`, `git commit`, `git push`, `gh pr create`, …) | Fixed code, in the same order every time |
+| LLM calls per commit + PR | Many turns, each re-sending the growing conversation | One short call per message (commit, branch, PR) |
+| What lands in the agent's context | Full diffs, command output, and retries | One small JSON result |
+| Result | Can vary from run to run, and messages get shaped by whatever else is in the conversation | Same steps every time, and messages are written only from the diff |
+
+On top of that:
+
+- **Small models are enough.** Since the model only writes text, cheap fast models (`claude-3-5-haiku`, `gpt-4o-mini`) do the job. They're the defaults.
 - **Free if you want.** Run it fully locally with [Ollama](#ollama-local-no-api-key) and no API key.
-- **One short request per task.** Each commit, branch name, or PR is a single prompt with a trimmed diff (`--max-diff-chars`), with no back-and-forth.
-- **Saves your agent's tokens.** When an AI agent uses committer, the expensive model doesn't have to read the diff or write the message. It runs one command and reads back a small JSON result.
+- **Bounded input.** Each prompt is just the trimmed diff (`--max-diff-chars`) and the commits, with no chat history.
+
+The [committer skill](./skills/committer/SKILL.md) for agents follows the same idea. It doesn't teach the agent the git workflow. It tells the agent to run one committer command and read the JSON result.
 
 ## Demo
 
