@@ -1,6 +1,15 @@
 # committer
 
-AI-powered CLI that generates [conventional commit messages](https://www.conventionalcommits.org/) and pull request descriptions from your git diff, with support for Claude, OpenAI, and local Ollama models.
+**The low-cost AI commit tool.** committer writes [conventional commit messages](https://www.conventionalcommits.org/), branch names, and pull request descriptions from your git diff. It works with Claude, OpenAI, and local Ollama models.
+
+> 🤖 **Using an AI coding agent?** Install the [committer skill](./skills/committer/SKILL.md) so your agent uses committer for every commit, branch, and PR. See [Make your AI agent use committer](#make-your-ai-agent-use-committer).
+
+## Why it's low cost
+
+- **Small models by default.** It uses cheap, fast models (`claude-3-5-haiku`, `gpt-4o-mini`) by default. Writing a commit message doesn't need a frontier model.
+- **Free if you want.** Run it fully locally with [Ollama](#ollama-local-no-api-key) and no API key.
+- **One short request per task.** Each commit, branch name, or PR is a single prompt with a trimmed diff (`--max-diff-chars`), with no back-and-forth.
+- **Saves your agent's tokens.** When an AI agent uses committer, the expensive model doesn't have to read the diff or write the message. It runs one command and reads back a small JSON result.
 
 ## Demo
 
@@ -10,7 +19,9 @@ AI-powered CLI that generates [conventional commit messages](https://www.convent
 
 - Streams commit messages live as they are generated
 - Regenerate with optional freeform instructions (`r` → type anything)
-- Pull request generation with structured Summary / Changes / Impact format
+- Pull request generation from commits **and the full branch changeset**, with a structured Summary / Changes / Impact format
+- AI-named branches (`feat/add-token-refresh`) from your unpushed commits or uncommitted work, with an option to move the commits off `dev`
+- `--non-interactive` / `--json` mode so scripts and AI agents can commit and open PRs unattended
 - Auto-detects GitHub or Azure DevOps and can open the PR for you
 - Three AI providers: Claude (Anthropic), OpenAI, and local Ollama
 - Interactive onboarding on first run — no manual config editing needed
@@ -58,7 +69,7 @@ committer --init
 
 ## Pull request generation
 
-Generate a PR title and description from all commits between a base branch and your current branch:
+Generate a PR title and description from the commits **and the actual changeset** (`git diff <base>...HEAD` plus a per-file summary) between a base branch and your current branch. Commits tell the AI the intent; the diff tells it what really changed, so the description stays accurate even when commit messages are terse:
 
 ```bash
 committer --pr main
@@ -89,6 +100,107 @@ Use (y) to create PR on GitHub, (n) to abort, (r) to regenerate:
 Same `y / n / r` flow as commits — press `r` to regenerate with optional instructions.
 
 If the remote is GitHub or Azure DevOps, choosing `y` uses the platform CLI (`gh` or `az`) to open the PR. If the CLI is not installed, committer offers to install it for you.
+
+Commit and open the PR in one go. With `.` (or when you already have staged changes), committer commits first and then builds the PR, including that new commit:
+
+```bash
+committer . --pr main
+```
+
+The diff sent for PRs is capped by `--max-diff-chars`. When it is trimmed, the per-file summary is still sent in full.
+
+---
+
+## Branch naming
+
+Committed on `dev` and realised it should be its own branch? Run:
+
+```bash
+committer --branch
+```
+
+committer reads the commits on your branch that are not on its remote (`@{u}..HEAD`, e.g. `origin/dev..dev`) plus any uncommitted changes. It suggests a `type/short-slug` name, then creates and switches to that branch. Your working tree and staged changes come along with you.
+
+```
+🌿 Suggested branch: feat/add-token-refresh
+   from 3 commit(s) on dev not in origin/dev + uncommitted changes
+Use (y) to create, (e) to edit, (n) to abort, (r) to regenerate:
+Move these 3 commit(s) off dev (reset it to origin/dev)? (y/N):
+```
+
+Answering `y` to the move question resets `dev` back to `origin/dev`. The commits are then only on the new branch. Nothing is lost, because the new branch points at your old `dev` HEAD.
+
+| Command | What it does |
+|---------|--------------|
+| `committer --branch` | Name from commits not on the upstream, plus uncommitted changes |
+| `committer --branch main` | Name from commits not in `main` (never offers to move) |
+| `committer --branch --move` | Move the commits off the source branch without asking |
+| `committer . --branch` | Create the branch, then stage everything and commit on it |
+| `committer . --branch --pr dev` | Branch → commit → PR into `dev` |
+
+If the name already exists, committer appends `-2`, `-3`, and so on. You can steer naming with `--prompt-append` or `claude.md`.
+
+---
+
+## Using committer from scripts and AI agents
+
+`--non-interactive` runs without any prompts, spinners, or colors:
+
+```bash
+committer . --non-interactive                 # stage everything, generate a message, commit
+committer --pr main --non-interactive         # generate the PR, push the branch, open the PR
+committer . --pr main --non-interactive       # commit, push, and open the PR
+committer . --branch --pr dev --non-interactive  # new AI-named branch, commit, push, PR into dev
+```
+
+- Commits are made automatically. Empty AI responses are retried up to 3 times.
+- For PRs, the current branch is pushed (`git push -u origin <branch>` the first time), then the PR is created with `gh` or `az`. The CLI is never auto-installed. If it is missing, the run fails and still prints the generated PR.
+- `--branch` creates the branch without asking. The source branch is only reset when you pass `--move`.
+- If no `~/.committer` exists, onboarding is skipped and environment variables or defaults are used.
+- Progress and warnings go to **stderr**, and only the result goes to **stdout**.
+- Exit code `0` means success or nothing to do. `1` means an error.
+
+Add `--json` (which implies `--non-interactive`) to get a single JSON object on stdout:
+
+```bash
+committer . --pr main --json
+```
+
+```json
+{
+  "ok": true,
+  "branch": { "name": "feat/add-token-refresh", "from": "dev", "base": "origin/dev", "commits": 3, "moved": 0 },
+  "commit": { "sha": "8570c54", "message": "feat(api): add token refresh\n\n..." },
+  "pr": {
+    "title": "Add Token Refresh",
+    "description": "## Summary\n...",
+    "base": "main",
+    "created": true,
+    "url": "https://github.com/you/repo/pull/42"
+  }
+}
+```
+
+`branch`, `commit` and `pr` are `null` when that step did not run. On failure you get `{"ok": false, ..., "error": "<message>"}`. When there is nothing to do, or no GitHub/Azure DevOps remote is found, a `reason` field explains why.
+
+### Make your AI agent use committer
+
+This repo ships a ready-made skill: [`skills/committer/SKILL.md`](./skills/committer/SKILL.md). It tells an agent to use committer for every commit, branch, and PR. It also covers which flags to use, how to read the JSON, and how to handle each error.
+
+**Claude Code.** Copy the skill into your skills folder. Use `~/.claude/skills/` for all projects, or `.claude/skills/` for one repo:
+
+```bash
+mkdir -p ~/.claude/skills/committer
+curl -fsSL https://raw.githubusercontent.com/frigopedro/committer/main/skills/committer/SKILL.md \
+  -o ~/.claude/skills/committer/SKILL.md
+```
+
+**Other agents (Codex, Cursor, Copilot, …).** Paste the contents of `SKILL.md` into your `AGENTS.md`, `CLAUDE.md`, or rules file. Or point the agent at it with a short instruction:
+
+```md
+For all commits, branches, and pull requests, use the `committer` CLI as described in
+skills/committer/SKILL.md (always with `--json`). Never write commit messages or PR descriptions by hand.
+```
 
 ---
 
@@ -161,7 +273,11 @@ committer [options] [.]
 | `--all` | Use staged + unstaged diff |
 | `--max-diff-chars <n>` | Truncate diff to N characters (default: 50000) |
 | `--prompt-append <text>` | Extra instruction added to the AI prompt |
-| `--pr <base-branch>` | Generate PR description from commits since base branch |
+| `--pr <base-branch>` | Generate PR description from commits and the branch diff since base branch |
+| `--branch [base]` | Create and switch to an AI-named branch from commits not in `base` (default: upstream) and uncommitted changes |
+| `--move` | With `--branch`: reset the source branch to its upstream so the commits live only on the new branch |
+| `--non-interactive` | No prompts: auto-commit, push, and create the PR (for scripts and AI agents) |
+| `--json` | Print a single JSON result to stdout (implies `--non-interactive`) |
 | `--init` | Re-run onboarding and update `~/.committer` |
 | `--help` | Show help |
 
@@ -229,6 +345,7 @@ Print the exact prompt sent to the AI:
 
 ```bash
 DEBUG_PROMPT=1 committer
+DEBUG_PROMPT=1 committer --pr main
 ```
 
 Output goes to stderr so it does not interfere with normal use.

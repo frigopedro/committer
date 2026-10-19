@@ -42,12 +42,11 @@ export class GithubPlatform {
     }
   }
 
-  createPr({ title, description, baseBranch }) {
-    const result = spawnSync(
-      "gh",
-      ["pr", "create", "--title", title, "--body", description, "--base", baseBranch],
-      { stdio: ["inherit", "pipe", "inherit"] }
-    );
+  createPr({ title, description, baseBranch, headBranch }) {
+    const args = ["pr", "create", "--title", title, "--body", description, "--base", baseBranch];
+    // --head stops gh from prompting about where to push
+    if (headBranch) args.push("--head", headBranch);
+    const result = spawnSync("gh", args, { stdio: ["inherit", "pipe", "inherit"] });
     const url = result.stdout?.toString().trim().split("\n").filter(Boolean).pop() ?? null;
     return { ok: result.status === 0, url };
   }

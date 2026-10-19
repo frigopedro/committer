@@ -30,6 +30,10 @@ export function write(text) {
   output.write(text);
 }
 
+export function writeError(text) {
+  process.stderr.write(`${text}\n`);
+}
+
 export async function promptSelect({ rl, question, options, defaultValue }) {
   writeLine(`\n${question}`);
   options.forEach((option, index) => {

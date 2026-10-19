@@ -1,6 +1,6 @@
 {
     "name": "@frigopedro/committer",
-    "version": "0.4.0",
+    "version": "0.5.0",
     "description": "Generate conventional commit messages using AI",
     "type": "module",
     "bin": {
@@ -27,6 +27,7 @@
     "files": [
         "index.js",
         "src",
+        "skills",
         "README.md"
     ],
     "publishConfig": {

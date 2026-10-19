@@ -1,4 +1,4 @@
-import { cleanCommitMessage, extractPrJson } from "./text.js";
+import { cleanBranchName, cleanCommitMessage, extractPrJson } from "./text.js";
 import { createProvider } from "./providers/registry.js";
 
 export async function generateCommitMessage({
@@ -42,19 +42,61 @@ export async function generatePullRequest({
     model,
     host,
     commits,
+    diff,
+    diffStat,
+    truncated,
     baseBranch,
     customInstructions,
     appendText,
 }) {
     const providerClient = createProvider(provider, { model, host });
-    const system = providerClient.buildSystemPrompt();
+    const system = providerClient.buildPullRequestSystemPrompt();
     const user = providerClient.buildPullRequestPrompt({
         commits,
+        diff,
+        diffStat,
+        truncated,
         baseBranch,
         customInstructions,
         appendText,
     });
 
+    if (process.env.DEBUG_PROMPT) {
+        console.error("\n--- SYSTEM ---\n" + system);
+        console.error("\n--- USER ---\n" + user);
+        console.error("\n--- END ---\n");
+    }
+
     const raw = await providerClient.generate({ system, user });
     return extractPrJson(raw);
+}
+
+export async function generateBranchName({
+    provider,
+    model,
+    host,
+    commits,
+    diff,
+    truncated,
+    customInstructions,
+    appendText,
+}) {
+    const providerClient = createProvider(provider, { model, host });
+    const system = providerClient.buildBranchNameSystemPrompt();
+    const user = providerClient.buildBranchNamePrompt({
+        commits,
+        diff,
+        truncated,
+        customInstructions,
+        appendText,
+    });
+
+    if (process.env.DEBUG_PROMPT) {
+        console.error("\n--- SYSTEM ---\n" + system);
+        console.error("\n--- USER ---\n" + user);
+        console.error("\n--- END ---\n");
+    }
+
+    const raw = await providerClient.generate({ system, user });
+    return cleanBranchName(raw);
 }

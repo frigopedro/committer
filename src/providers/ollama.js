@@ -82,39 +82,6 @@ export class OllamaProvider extends BaseProvider {
       .join("\n");
   }
 
-  buildPullRequestPrompt({ commits, baseBranch, customInstructions, appendText }) {
-    const instructionBlock = customInstructions
-      ? `Project instructions:\n${customInstructions}`
-      : "";
-
-    return [
-      "Write a pull request title and description.",
-      "Output ONLY a valid JSON object. NO extra text. NO markdown fences. NO commentary.",
-      "",
-      "The JSON must have exactly two keys:",
-      '  "title"       — short human-readable PR title in Title Case (e.g. "Add User Authentication"), no conventional commit prefix, under 72 chars.',
-      '  "description" — Markdown string with these three sections:',
-      "    ## Summary",
-      "    <1-2 sentences describing the overall purpose of this PR>",
-      "",
-      "    ## Changes",
-      "    - <key change>",
-      "",
-      "    ## Impact",
-      "    <Breaking changes, performance effects, or behavioral differences. Write 'No breaking changes.' if none.>",
-      "",
-      "Example output (do not copy literally):",
-      '{"title":"Add User Authentication","description":"## Summary\\nAdd JWT-based login and token refresh.\\n\\n## Changes\\n- Add POST /auth/login endpoint\\n- Add JWT middleware\\n\\n## Impact\\nNo breaking changes."}',
-      "",
-      instructionBlock,
-      appendText?.trim() || "",
-      `Base branch: ${baseBranch}`,
-      "Commits:",
-      commits,
-    ]
-      .filter(Boolean)
-      .join("\n");
-  }
 
     async generate({ system, user }) {
         const response = await fetch(`${this.host}/api/chat`, {

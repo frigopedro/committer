@@ -86,7 +86,85 @@ export class GitClient {
       } catch { /* ignore — log will fail with a clear message if ref still missing */ }
     }
 
-    return this.runGit(["log", `${base}..${head}`, "--pretty=format:%h%x20%s"]);
+    return this.runGit(["log", `${base}..${head}`, "--pretty=format:%h%x20%s%n%b"]);
+  }
+
+  // Three-dot diff: changes since the merge-base, i.e. what the PR will show
+  getBranchDiff(baseRef, headRef = "HEAD") {
+    return this.runGit(["diff", `${baseRef}...${headRef}`]);
+  }
+
+  getBranchDiffStat(baseRef, headRef = "HEAD") {
+    return this.runGit(["diff", "--stat", `${baseRef}...${headRef}`]);
+  }
+
+  hasStagedChanges() {
+    return Boolean(this.runGit(["diff", "--staged", "--name-only"]));
+  }
+
+  hasUncommittedChanges() {
+    return Boolean(this.runGit(["status", "--porcelain"]));
+  }
+
+  getHeadSha() {
+    return this.runGit(["rev-parse", "--short", "HEAD"]);
+  }
+
+  getUpstream() {
+    try {
+      return this.runGit(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]);
+    } catch {
+      return "";
+    }
+  }
+
+  refExists(ref) {
+    try {
+      this.runGit(["rev-parse", "--verify", "--quiet", ref]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  isValidBranchName(name) {
+    try {
+      this.runGit(["check-ref-format", "--branch", name]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  countCommits(baseRef, headRef = "HEAD") {
+    return Number.parseInt(this.runGit(["rev-list", "--count", `${baseRef}..${headRef}`]), 10);
+  }
+
+  // Keeps the working tree and staged changes
+  createBranch(name) {
+    this.runGit(["switch", "-c", name]);
+  }
+
+  // Moves a branch ref that is not checked out; the working tree is untouched
+  resetBranch(branch, ref) {
+    this.runGit(["branch", "-f", branch, ref]);
+  }
+
+  // Pushes the current branch, setting upstream on first push. No-op when up to date.
+  pushCurrentBranch(remote = "origin") {
+    const branch = this.getCurrentBranch();
+    const upstream = this.getUpstream();
+
+    if (!upstream) {
+      this.runGit(["push", "-u", remote, branch]);
+      return { pushed: true, branch };
+    }
+
+    if (this.countCommits(upstream) > 0) {
+      this.runGit(["push"]);
+      return { pushed: true, branch };
+    }
+    return { pushed: false, branch };
   }
 
   truncateDiff(diff, maxChars) {
@@ -100,14 +178,19 @@ export class GitClient {
     };
   }
 
-  async commitWithMessage(message) {
+  // silent: keep git's output off stdout (forwarded to stderr only on failure)
+  async commitWithMessage(message, { silent = false } = {}) {
     const filePath = join(tmpdir(), `committer-${randomUUID()}.txt`);
     await fs.writeFile(filePath, `${message}\n`, "utf8");
 
     try {
       const result = spawnSync("git", ["commit", "-F", filePath], {
-        stdio: "inherit",
+        stdio: silent ? ["ignore", "pipe", "pipe"] : "inherit",
+        encoding: "utf8",
       });
+      if (silent && result.status !== 0) {
+        process.stderr.write(`${result.stdout ?? ""}${result.stderr ?? ""}`);
+      }
       return result.status ?? 1;
     } finally {
       await fs.rm(filePath, { force: true });

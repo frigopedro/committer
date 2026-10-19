@@ -5,9 +5,9 @@ import { stdin as input, stdout as output } from "node:process";
 
 import { parseArgs } from "./src/args.js";
 import { runApp } from "./src/app.js";
-import { generateCommitMessage, generatePullRequest } from "./src/ai.js";
+import { generateBranchName, generateCommitMessage, generatePullRequest } from "./src/ai.js";
 import { runOnboarding } from "./src/onboarding.js";
-import { colorize, colors, write, writeLine } from "./src/ui.js";
+import { colorize, colors, write, writeError, writeLine } from "./src/ui.js";
 import { getProviderClass } from "./src/providers/registry.js";
 import { GitClient } from "./src/git-client.js";
 import { getConfigPath, readConfig } from "./src/config.js";
@@ -53,18 +53,27 @@ function createSpinner(textOrMessages) {
     };
 }
 
+// Safety net: in non-interactive mode no code path may block waiting on stdin
+const nonInteractiveReadline = {
+    question: async () => {
+        throw new Error("Interactive prompt requested in --non-interactive mode.");
+    },
+    close: () => {},
+};
+
 async function main() {
     const args = parseArgs(process.argv.slice(2));
-    const rl = createInterface({ input, output });
+    const nonInteractive = args.has("non-interactive") || args.has("json");
+    const rl = nonInteractive ? nonInteractiveReadline : createInterface({ input, output });
     const git = new GitClient();
 
     const exitCode = await runApp({
         argv: process.argv.slice(2),
         args,
         env: process.env,
-        ui: { write, writeLine, colorize, colors },
+        ui: { write, writeLine, writeError, colorize, colors },
         git,
-        ai: { generateCommitMessage, generatePullRequest },
+        ai: { generateBranchName, generateCommitMessage, generatePullRequest },
         config: { getConfigPath, readConfig, runOnboarding },
         providerRegistry: { getProviderClass },
         files: { readTextFile },
